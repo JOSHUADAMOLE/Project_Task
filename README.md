@@ -12,7 +12,7 @@ Setup for the Task given
 10. run the project with, "npm run dev" and "php artisan serve".
 
 NOTE: 
-    -ONLY THE ADMIN CAN CREATE THE ACCOUNT FOR THE MEMBERS/EMPLOYEE
+    -ONLY THE ADMIN CAN CREATE THE ACCOUNT FOR THE MEMBERS/EMPLOYEES
 
 ADMIN:
 USERNAME: admin@mail.com
