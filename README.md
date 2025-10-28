@@ -15,5 +15,5 @@ NOTE:
     -ONLY THE ADMIN CAN CREATE THE ACCOUNT FOR THE MEMBERS/EMPLOYEE
 
 ADMIN:
-admin@mail.com
-password
+USERNAME: admin@mail.com
+PASSWORD: password
