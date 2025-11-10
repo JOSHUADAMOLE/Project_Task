@@ -12,7 +12,6 @@ use App\Events\Task\TaskUpdated;
 use App\Http\Requests\Task\StoreTaskRequest;
 use App\Http\Requests\Task\UpdateTaskRequest;
 use App\Models\Label;
-use App\Models\OwnerCompany;
 use App\Models\Project;
 use App\Models\Task;
 use App\Models\TaskGroup;
@@ -78,9 +77,7 @@ class TaskController extends Controller
             'taskGroups' => $groups,
             'groupedTasks' => $groupedTasks,
             'openedTask' => $task ? $task->loadDefault() : null,
-            'currency' => [
-                'symbol' => OwnerCompany::with('currency')->first()->currency->symbol,
-            ],
+            'currency' => null, 
         ]);
     }
 
