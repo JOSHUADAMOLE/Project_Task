@@ -63,12 +63,9 @@ class ProjectController extends Controller
         }
 
         $project->taskGroups()->createMany([
-            ['name' => 'Backlog'],
-            ['name' => 'Todo'],
+            ['name' => 'To do'],
             ['name' => 'In progress'],
-            ['name' => 'QA'],
-            ['name' => 'Done'],
-            ['name' => 'Deployed'],
+            ['name' => 'Completed'],
         ]);
 
         return redirect()->route('projects.index')->success('Project created', 'A new project was successfully created.');
