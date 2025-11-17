@@ -43,6 +43,7 @@ const useTaskFiltersStore = create((set, get) => ({
       filters: {
         groups: [],
         assignees: [],
+        subscribers: [],
         due_date: {
           not_set: 0,
           overdue: 0,

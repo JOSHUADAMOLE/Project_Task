@@ -9,17 +9,19 @@ import {
   Breadcrumbs,
   Grid,
   Group,
+  Select,
   MultiSelect,
   TextInput,
   Textarea,
   Title,
 } from '@mantine/core';
 
-const ProjectCreate = ({ dropdowns: { users } }) => {
+const ProjectCreate = ({ dropdowns: { users, companies } }) => {
   const [form, submit, updateValue] = useForm('post', route('projects.store'), {
     name: '',
     description: '',
     users: [],
+    client_company_id: '', 
   });
 
   return (
@@ -64,7 +66,16 @@ const ProjectCreate = ({ dropdowns: { users } }) => {
             value={form.data.description}
             onChange={e => updateValue('description', e.target.value)}
           />
-
+          <Select
+            label='Company requesting work'
+            placeholder='Select company'
+            required
+            mt='md'
+            value={form.data.client_company_id}
+            onChange={value => updateValue('client_company_id', value)}
+            data={companies}
+            error={form.errors.client_company_id}
+          />
           <MultiSelect
             label="Grant access to users"
             placeholder="Select users"

@@ -22,6 +22,7 @@ class Project extends Model implements AuditableContract
     protected $fillable = [
         'name',
         'description',
+        'client_company_id',
     ];
 
     protected $searchable = [

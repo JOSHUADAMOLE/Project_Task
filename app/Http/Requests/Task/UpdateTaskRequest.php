@@ -36,6 +36,8 @@ class UpdateTaskRequest extends FormRequest
             'billable' => ['boolean'],
             'subscribed_users' => ['array'],
             'labels' => ['array'],
+            'attachments' => ['array'],
+            'subscribed_users' => ['array'],
         ];
     }
 }

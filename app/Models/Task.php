@@ -90,6 +90,7 @@ class Task extends Model implements AuditableContract, Sortable
             (new IsNullFilter('due_on'))->setQueryName('not_set'),
             (new TaskCompletedFilter('completed_at'))->setQueryName('status'),
             (new WhereHasFilter('labels'))->setQueryName('labels'),
+            (new WhereHasFilter('subscribedUsers'))->setQueryName('subscribers'),
         ];
     }
 
@@ -140,8 +141,9 @@ class Task extends Model implements AuditableContract, Sortable
 
     public function subscribedUsers(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'subscribe_task');
+        return $this->belongsToMany(User::class, 'subscribe_task', 'task_id', 'user_id');
     }
+
 
     public function labels(): BelongsToMany
     {

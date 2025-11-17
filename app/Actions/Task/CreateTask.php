@@ -19,27 +19,38 @@ class CreateTask
     public function create(Project $project, array $data): Task
     {
         return DB::transaction(function () use ($project, $data) {
+
+            // Create task
             $task = $project->tasks()->create([
-            'group_id' => $data['group_id'],
-            'created_by_user_id' => auth()->id(),
-            'name' => $data['name'],
-            'number' => $project->tasks()->withArchived()->count() + 1,
-            'description' => $data['description'] ?? null,
-            'due_on' => $data['due_on'] ?? null,
-            'completed_at' => null,
-        ]);
+                'group_id' => $data['group_id'],
+                'created_by_user_id' => auth()->id(),
+                'name' => $data['name'],
+                'number' => $project->tasks()->withArchived()->count() + 1,
+                'description' => $data['description'] ?? null,
+                'due_on' => $data['due_on'] ?? null,
+                'completed_at' => null,
+            ]);
 
-        if (!empty($data['assigned_to_user_id'])) {
-            $task->assignedUsers()->sync($data['assigned_to_user_id']);
-        }
-            // Attach subscribed users if any
-            $task->subscribedUsers()->attach($data['subscribed_users'] ?? []);
+            // Assign users
+            if (!empty($data['assigned_to_user_id'])) {
+                $assignedIds = array_map('intval', $data['assigned_to_user_id']);
+                $task->assignedUsers()->sync($assignedIds);
+            }
 
-            // Attach labels if any
-            $task->labels()->attach($data['labels'] ?? []);
+            // Attach subscribers
+            if (!empty($data['subscribed_users'])) {
+                $subscriberIds = array_map('intval', $data['subscribed_users']);
+                $task->subscribedUsers()->sync($subscriberIds);
+            }
 
-            // Handle file uploads if any
-            if (! empty($data['attachments'])) {
+            // Attach labels
+            if (!empty($data['labels'])) {
+                $labelIds = array_map('intval', $data['labels']);
+                $task->labels()->sync($labelIds);
+            }
+
+            // Handle attachments
+            if (!empty($data['attachments'])) {
                 $this->uploadAttachments($task, $data['attachments'], false);
             }
 

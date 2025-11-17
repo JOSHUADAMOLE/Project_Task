@@ -26,6 +26,7 @@ class StoreProjectRequest extends FormRequest
         return [
             'name' => ['required', 'string', Rule::unique('projects', 'name')],
             'description' => 'string|nullable',
+            'client_company_id' => 'required|integer|exists:client_companies,id',
             'users' => 'array'
         ];
     }

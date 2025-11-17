@@ -11,10 +11,15 @@ class ProjectService
 
     public function updateUserAccess(array $userIds): bool
     {
+        // Remove duplicates just in case
+        $userIds = array_unique($userIds);
+
+        // Delete old access
         DB::table('project_user_access')
             ->where('project_id', $this->project->id)
             ->delete();
 
+        // Insert new access
         return DB::table('project_user_access')
             ->insert(
                 collect($userIds)

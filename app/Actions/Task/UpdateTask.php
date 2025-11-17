@@ -12,6 +12,15 @@ class UpdateTask
     {
         $updateField = key($data);
 
+        // Ensure arrays exist for syncable relations
+        if ($updateField === 'subscribed_users' && !isset($data['subscribed_users'])) {
+            $data['subscribed_users'] = [];
+        }
+
+        if ($updateField === 'labels' && !isset($data['labels'])) {
+            $data['labels'] = [];
+        }
+
         if ($updateField === 'pricing_type' && $data['pricing_type'] === PricingType::HOURLY->value) {
             $task->update([
                 'pricing_type' => PricingType::HOURLY,
@@ -23,7 +32,7 @@ class UpdateTask
             $data['fixed_price'] = (int) $data['fixed_price'];
         }
 
-        if (! in_array($updateField, ['subscribed_users', 'labels'])) {
+        if (!in_array($updateField, ['subscribed_users', 'labels'])) {
             $task->update($data);
 
             if ($updateField === 'group_id') {
@@ -41,4 +50,5 @@ class UpdateTask
 
         TaskUpdated::dispatch($task, $updateField);
     }
+
 }

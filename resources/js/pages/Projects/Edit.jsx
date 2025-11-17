@@ -10,13 +10,14 @@ import {
   Breadcrumbs,
   Grid,
   Group,
+  Select,
   MultiSelect,
   TextInput,
   Textarea,
   Title,
 } from '@mantine/core';
 
-const ProjectEdit = ({ dropdowns: { users } }) => {
+const ProjectEdit = ({ dropdowns: { users, companies } }) => {
   const { item } = usePage().props;
 
   const [form, submit, updateValue] = useForm('post', route('projects.update', item.id), {
@@ -24,6 +25,7 @@ const ProjectEdit = ({ dropdowns: { users } }) => {
     name: item.name,
     description: item.description || '',
     users: item.users.map(i => i.id.toString()),
+    client_company_id: item.client_company_id ? item.client_company_id.toString() : '',
   });
 
   return (
@@ -64,7 +66,16 @@ const ProjectEdit = ({ dropdowns: { users } }) => {
             value={form.data.description}
             onChange={e => updateValue('description', e.target.value)}
           />
-
+          <Select
+            label='Company requesting work'
+            placeholder='Select company'
+            required
+            mt='md'
+            value={form.data.client_company_id}
+            onChange={value => updateValue('client_company_id', value)}
+            data={companies}
+            error={form.errors.client_company_id}
+          />
           <MultiSelect
             label="Grant access to users"
             placeholder="Select users"

@@ -26,7 +26,8 @@ class UpdateProjectRequest extends FormRequest
         return [
             'name' => ['required', 'string', Rule::unique('projects', 'name')->ignore($this->route('project')->id)],
             'description' => 'string|nullable',
-            'users' => 'array'
+            'users' => 'array',
+            'client_company_id' => 'required|integer|exists:client_companies,id',
         ];
     }
 }

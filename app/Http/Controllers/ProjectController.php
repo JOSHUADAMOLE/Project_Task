@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Project\StoreProjectRequest;
 use App\Http\Requests\Project\UpdateProjectRequest;
 use App\Http\Resources\Project\ProjectResource;
+use App\Models\ClientCompany;
 use App\Models\Project;
 use App\Models\User;
 use App\Services\ProjectService;
@@ -20,19 +21,29 @@ class ProjectController extends Controller
 
     public function index(Request $request)
     {
+        $user = $request->user();
+
         return Inertia::render('Projects/Index', [
             'items' => ProjectResource::collection(
                 Project::searchByQueryString()
-                    ->when($request->user()->isNotAdmin(), function ($query) {
-                        // Only show projects assigned to this user
-                        $query->whereHas('users', fn ($query) => $query->where('id', auth()->id()));
+                    ->when($user->isNotAdmin(), function ($query) use ($user) {
+                        if ($user->hasRole('client')) {
+                            // Show projects belonging to this client's companies
+                            $query->whereIn('client_company_id', $user->clientCompanies()->pluck('client_company_id'));
+                        } else {
+                            // Show projects assigned to the user
+                            $query->whereHas('users', fn($q) => $q->where('id', $user->id));
+                        }
                     })
                     ->when($request->has('archived'), fn ($query) => $query->onlyArchived())
-                    ->with(['users:id,name,avatar'])
+                    ->with([
+                        'clientCompany:id,name',
+                        'users:id,name,avatar',
+                    ])
                     ->withCount([
                         'tasks AS all_tasks_count',
-                        'tasks AS completed_tasks_count' => fn ($query) => $query->whereNotNull('completed_at'),
-                        'tasks AS overdue_tasks_count' => fn ($query) => $query->whereNull('completed_at')->whereDate('due_on', '<', now()),
+                        'tasks AS completed_tasks_count' => fn($query) => $query->whereNotNull('completed_at'),
+                        'tasks AS overdue_tasks_count' => fn($query) => $query->whereNull('completed_at')->whereDate('due_on', '<', now()),
                     ])
                     ->withExists('favoritedByAuthUser AS favorite')
                     ->orderBy('favorite', 'desc')
@@ -42,10 +53,12 @@ class ProjectController extends Controller
         ]);
     }
 
+
     public function create()
     {
         return Inertia::render('Projects/Create', [
             'dropdowns' => [
+                'companies' => ClientCompany::dropdownValues(), // ✅ Company list
                 'users' => User::userDropdownValues(),
             ],
         ]);
@@ -55,20 +68,27 @@ class ProjectController extends Controller
     {
         $data = $request->validated();
 
-        // No rate, no company — just name, description, users, etc.
+        // ✅ Ensure company is selected
+        if (empty($data['client_company_id'])) {
+            return back()->withErrors(['client_company_id' => 'Company is required.']);
+        }
+
         $project = Project::create($data);
 
         if (!empty($data['users'])) {
             $project->users()->attach($data['users']);
         }
 
+        // Default task groups
         $project->taskGroups()->createMany([
             ['name' => 'To do'],
             ['name' => 'In progress'],
             ['name' => 'Completed'],
         ]);
 
-        return redirect()->route('projects.index')->success('Project created', 'A new project was successfully created.');
+        return redirect()
+            ->route('projects.index')
+            ->success('Project created', 'A new project was successfully created.');
     }
 
     public function edit(Project $project)
@@ -76,6 +96,7 @@ class ProjectController extends Controller
         return Inertia::render('Projects/Edit', [
             'item' => $project,
             'dropdowns' => [
+                'companies' => ClientCompany::dropdownValues(),
                 'users' => User::userDropdownValues(),
             ],
         ]);
@@ -85,20 +106,29 @@ class ProjectController extends Controller
     {
         $data = $request->validated();
 
+        // ✅ Ensure company is selected
+        if (empty($data['client_company_id'])) {
+            return back()->withErrors(['client_company_id' => 'Company is required.']);
+        }
+
         $project->update($data);
 
         if (!empty($data['users'])) {
             $project->users()->sync($data['users']);
         }
 
-        return redirect()->route('projects.index')->success('Project updated', 'The project was successfully updated.');
+        return redirect()
+            ->route('projects.index')
+            ->success('Project updated', 'The project was successfully updated.');
     }
 
     public function destroy(Project $project)
     {
         $project->archive();
 
-        return redirect()->back()->success('Project archived', 'The project was successfully archived.');
+        return redirect()
+            ->back()
+            ->success('Project archived', 'The project was successfully archived.');
     }
 
     public function restore(int $projectId)
@@ -109,7 +139,9 @@ class ProjectController extends Controller
 
         $project->unArchive();
 
-        return redirect()->back()->success('Project restored', 'The restoring of the project was completed successfully.');
+        return redirect()
+            ->back()
+            ->success('Project restored', 'The restoring of the project was completed successfully.');
     }
 
     public function favoriteToggle(Project $project)
@@ -123,10 +155,20 @@ class ProjectController extends Controller
     {
         $this->authorize('editUserAccess', $project);
 
-        $userIds = $request->get('users', []);
+        // Merge regular users + client users into a single array
+        $userIds = array_merge(
+            $request->get('users', []),
+            $request->get('clients', [])
+        );
 
+        // Remove duplicates just in case
+        $userIds = array_unique($userIds);
+
+        // Update project access
         (new ProjectService($project))->updateUserAccess($userIds);
 
-        return redirect()->back();
+        return redirect()->back()
+            ->success('Access updated', 'User and client access updated.');
     }
+
 }

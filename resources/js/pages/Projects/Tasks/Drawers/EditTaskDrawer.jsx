@@ -200,7 +200,7 @@ export function EditTaskDrawer() {
 
               {can('view comments') && <Comments task={task} />}
             </div>
-
+            
             <div className={classes.sidebar}>
               <Select
                 label="Task group"
@@ -232,7 +232,6 @@ export function EditTaskDrawer() {
                 }))}
                 readOnly={!can('edit task')}
               />
-
               <DateInput
                 clearable={false}
                 required
@@ -246,12 +245,18 @@ export function EditTaskDrawer() {
                 error={errors.due_on}
                 readOnly={!can('edit task')}
               />
-
-              <LabelsDropdown
-                items={labels}
-                selected={data.labels}
-                onChange={values => updateValue('labels', values)}
+              <MultiSelect
+                label="Subscribers"
+                placeholder="Select users to subscribe"
                 mt="md"
+                value={data.subscribed_users || []}
+                onChange={value => updateValue('subscribed_users', value)}
+                data={usersWithAccessToProject.map(user => ({
+                  value: user.id?.toString() || '',
+                  label: user.name || 'Unnamed User',
+                }))}
+                readOnly={!can('edit task')}
+                searchable={false} // <-- disables search, placeholder disappears after selection
               />
             </div>
           </form>

@@ -24,7 +24,8 @@ export function CreateTaskDrawer() {
 
   const initial = {
     group_id: create.group_id ? create.group_id.toString() : '',
-    assigned_to_user_id: [], // multiple assignees
+    subscribed_users: [],
+    assigned_to_user_id: [], 
     name: '',
     description: '',
     due_on: null,
@@ -119,7 +120,18 @@ export function CreateTaskDrawer() {
             onChange={(files) => updateValue('attachments', files)}
             remove={removeAttachment}
           />
-
+          <MultiSelect
+            label="Subscribers"
+            placeholder="Select subscribers"
+            searchable
+            mt="md"
+            value={form.data.subscribed_users || []}
+            onChange={(values) => updateValue('subscribed_users', values)}
+            data={usersWithAccessToProject.map((i) => ({
+              value: i.id.toString(),
+              label: i.name,
+            }))}
+          />
           {/* Task Group */}
           <Select
             label="Task Group"

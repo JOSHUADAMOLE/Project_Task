@@ -51,7 +51,7 @@ export default function Filters() {
             </Stack>
           </div>
         )}
-
+        
         <div>
           <Text fz="xs" fw={700} tt="uppercase" mb="sm">
             Due date

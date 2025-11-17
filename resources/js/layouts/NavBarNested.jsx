@@ -6,6 +6,7 @@ import {
   IconGauge,
   IconLayoutList,
   IconReportAnalytics,
+  IconBuildingSkyscraper,
   IconSettings,
   IconUsers,
   IconListDetails,
@@ -57,7 +58,28 @@ export default function Sidebar() {
         ],
       },
       {
-        label: "Members",
+        label: "Clients",
+        icon: IconBuildingSkyscraper,
+        active: route().current("clients.*"),
+        opened: route().current("clients.*"),
+        visible: can("view client users") || can("view client companies"),
+        links: [
+          {
+            label: "Users",
+            link: route("clients.users.index"),
+            active: route().current("clients.users.*"),
+            visible: can("view client users"),
+          },
+          {
+            label: "Companies",
+            link: route("clients.companies.index"),
+            active: route().current("clients.companies.*"),
+            visible: can("view client companies"),
+          },
+        ],
+      }, 
+      {
+        label: "Teams",
         icon: IconUsers,
         link: route("users.index"),
         active: route().current("users.*"),

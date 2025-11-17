@@ -154,36 +154,42 @@ class ReportController extends Controller
     {
         $user = auth()->user();
 
-        // Fetch all projects and their tasks for this user
-        $projects = $user->projects()->with(['tasks' => function ($query) {
-            $query->select('id', 'name', 'project_id', 'completed_at');
-        }])->get(['id', 'name']);
-
-        // Prepare chart data
-        $chartData = [];
-        foreach ($projects as $project) {
-            foreach ($project->tasks as $task) {
-                $chartData[] = [
-                    'project' => $project->name,
-                    'task' => $task->name,
-                    'status' => $task->completed_at ? 'Completed' : 'Incomplete',
-                ];
-            }
+        if ($user->hasRole('admin')) {
+            // Admin sees all projects with tasks
+            $projects = Project::with(['tasks' => fn($q) => $q->select('id','name','project_id','completed_at')])->get(['id','name']);
+        } elseif ($user->hasRole('client')) {
+            // Client sees projects that have tasks they are subscribed to
+            $projects = Project::whereHas('tasks.subscribedUsers', fn($q) => $q->where('user_id', $user->id))
+                ->with(['tasks' => fn($q) => $q->whereHas('subscribedUsers', fn($sub) => $sub->where('user_id', $user->id))
+                                                ->select('id','name','project_id','completed_at')])
+                ->get(['id','name']);
+        } else {
+            // Regular users see projects where they are assigned tasks
+            $projects = Project::whereHas('tasks', fn($q) => $q->where('assigned_to_user_id', $user->id))
+                ->with(['tasks' => fn($q) => $q->where('assigned_to_user_id', $user->id)
+                                                ->select('id','name','project_id','completed_at')])
+                ->get(['id','name']);
         }
 
-        // Count totals for pie chart
-        $completedTasks = collect($chartData)->where('status', 'Completed')->count();
-        $incompleteTasks = collect($chartData)->where('status', 'Incomplete')->count();
-        $totalProjects = $projects->count();
+        // Prepare chart data
+        $chartData = $projects->flatMap(fn($project) => 
+            $project->tasks->map(fn($task) => [
+                'project' => $project->name,
+                'task' => $task->name,
+                'status' => $task->completed_at ? 'Completed' : 'Incomplete',
+            ])
+        );
+
+        $completedTasks = $chartData->where('status', 'Completed')->count();
+        $incompleteTasks = $chartData->where('status', 'Incomplete')->count();
 
         return Inertia::render('Reports/WorkStatistics', [
             'statistics' => [
                 'completed_tasks' => $completedTasks,
                 'incomplete_tasks' => $incompleteTasks,
-                'total_projects' => $totalProjects,
+                'total_projects' => $projects->count(),
             ],
             'chartData' => $chartData,
         ]);
     }
-
 }

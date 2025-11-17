@@ -25,12 +25,11 @@ class RoleController extends Controller
         return Inertia::render('Settings/Roles/Index', [
             'items' => RoleResource::collection(
                 Role::searchByQueryString()
-                    ->sortByQueryString()
-                    ->when($request->has('archived'), fn ($query) => $query->onlyArchived())
-                    // 👇 Exclude unwanted roles here
-                    ->whereNotIn('name', ['Client', 'Owner Company', 'Client User', 'Client Company', 'Invoices'])
-                    ->withCount('permissions')
-                    ->paginate(12),
+                ->sortByQueryString()
+                ->when($request->has('archived'), fn ($query) => $query->onlyArchived())
+                ->whereNotIn('name', ['Owner Company', 'Client User', 'Client Company', 'Invoices'])
+                ->withCount('permissions')
+                ->paginate(12)
             ),
         ]);
     }
