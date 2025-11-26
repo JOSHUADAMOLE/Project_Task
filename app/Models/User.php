@@ -117,4 +117,9 @@ class User extends Authenticatable implements AuditableContract, CanResetPasswor
             ->map(fn ($i) => ['value' => (string) $i->id, 'label' => $i->name])
             ->toArray();
     }
+
+   public function teams()
+    {
+        return $this->belongsToMany(Team::class, 'team_user', 'user_id', 'team_id');
+    }
 }

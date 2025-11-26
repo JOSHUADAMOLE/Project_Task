@@ -16,7 +16,6 @@ import {
   Grid,
   Group,
   MultiSelect,
-  NumberInput,
   PasswordInput,
   Text,
   TextInput,
@@ -24,20 +23,29 @@ import {
 } from "@mantine/core";
 
 const UserEdit = () => {
-  const { item } = usePage().props;
+  const { item, teams } = usePage().props; // teams passed from backend
   const { getDropdownValues } = useRoles();
 
-  const [form, submit, updateValue] = useForm("post", route("users.update", item.id), {
-    _method: "put",
-    avatar: null,
-    job_title: item.job_title,
-    name: item.name,
-    phone: item.phone || "",
-    email: item.email,
-    password: "",
-    password_confirmation: "",
-    roles: item.roles,
-  });
+  // Convert roles and teams to string arrays for Mantine MultiSelect
+  const roleValues = item.roles?.map((r) => r.name) || [];
+  const teamValues = item.teams?.map((t) => t.id.toString()) || [];
+
+  const [form, submit, updateValue] = useForm(
+    "post",
+    route("users.update", item.id),
+    {
+      _method: "put",
+      avatar: null,
+      job_title: item.job_title,
+      name: item.name,
+      phone: item.phone || "",
+      email: item.email,
+      password: "",
+      password_confirmation: "",
+      roles: roleValues, // array of string IDs
+      teams: teamValues, // array of string IDs
+    }
+  );
 
   return (
     <>
@@ -108,26 +116,37 @@ const UserEdit = () => {
             error={form.errors.job_title}
           />
 
+          {/* Roles MultiSelect */}
           <MultiSelect
             label="Roles"
             placeholder="Select role"
             required
             mt="md"
-            value={form.data.roles}
+            value={form.data.roles} // array of string IDs
             onChange={(values) => updateValue("roles", values)}
-            data={getDropdownValues({ except: ["client"] })}
+            data={getDropdownValues({ except: ["client"] })} // must be {value,label}
             error={form.errors.roles}
           />
 
-          <Group grow mt="md">
-            <TextInput
-              label="Phone"
-              placeholder="Users phone number"
-              value={form.data.phone}
-              onChange={(e) => updateValue("phone", e.target.value)}
-              error={form.errors.phone}
-            />
-          </Group>
+          {/* Teams MultiSelect */}
+          <MultiSelect
+            label="Teams"
+            placeholder="Select teams"
+            mt="md"
+            value={form.data.teams} // array of string IDs
+            onChange={(values) => updateValue("teams", values)}
+            data={teams.map((t) => ({ value: t.id.toString(), label: t.name }))}
+            error={form.errors.teams}
+          />
+
+          <TextInput
+            label="Phone"
+            placeholder="Users phone number"
+            mt="md"
+            value={form.data.phone}
+            onChange={(e) => updateValue("phone", e.target.value)}
+            error={form.errors.phone}
+          />
 
           <Divider mt="xl" mb="md" label="Login credentials" labelPosition="center" />
 

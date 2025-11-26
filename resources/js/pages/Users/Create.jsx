@@ -6,6 +6,7 @@ import ContainerBox from "@/layouts/ContainerBox";
 import Layout from "@/layouts/MainLayout";
 import { redirectTo } from "@/utils/route";
 import { getInitials } from "@/utils/user";
+import { usePage } from "@inertiajs/react";
 import {
   Anchor,
   Avatar,
@@ -23,6 +24,7 @@ import {
 
 const UserCreate = () => {
   const { getDropdownValues } = useRoles();
+  const { teams } = usePage().props; // Teams from backend
 
   const [form, submit, updateValue] = useForm("post", route("users.store"), {
     avatar: null,
@@ -33,6 +35,7 @@ const UserCreate = () => {
     password: "",
     password_confirmation: "",
     roles: [],
+    teams: [], // <-- added
   });
 
   return (
@@ -48,7 +51,6 @@ const UserCreate = () => {
         <Grid.Col span="auto">
           <Title order={1}>Create user</Title>
         </Grid.Col>
-        <Grid.Col span="content"></Grid.Col>
       </Grid>
 
       <ContainerBox maw={600}>
@@ -56,7 +58,7 @@ const UserCreate = () => {
           <Grid justify="flex-start" align="flex-start" gutter="lg">
             <Grid.Col span="content">
               <Avatar
-                src={form.data.avatar !== null ? URL.createObjectURL(form.data.avatar) : null}
+                src={form.data.avatar ? URL.createObjectURL(form.data.avatar) : null}
                 size={120}
                 color="blue"
               >
@@ -113,15 +115,24 @@ const UserCreate = () => {
             error={form.errors.roles}
           />
 
-          <Group grow mt="md">
-            <TextInput
-              label="Phone"
-              placeholder="Users phone number"
-              value={form.data.phone}
-              onChange={(e) => updateValue("phone", e.target.value)}
-              error={form.errors.phone}
-            />
-          </Group>
+          <MultiSelect
+            label="Teams"
+            placeholder="Assign user to teams"
+            mt="md"
+            value={form.data.teams}
+            onChange={(values) => updateValue("teams", values)}
+            data={teams.map(team => ({ value: team.id.toString(), label: team.name }))}
+            error={form.errors.teams}
+          />
+
+          <TextInput
+            label="Phone"
+            placeholder="User phone number"
+            mt="md"
+            value={form.data.phone}
+            onChange={(e) => updateValue("phone", e.target.value)}
+            error={form.errors.phone}
+          />
 
           <Divider mt="xl" mb="md" label="Login credentials" labelPosition="center" />
 
@@ -131,7 +142,6 @@ const UserCreate = () => {
             required
             value={form.data.email}
             onChange={(e) => updateValue("email", e.target.value)}
-            onBlur={() => form.validate("email")}
             error={form.errors.email}
           />
 

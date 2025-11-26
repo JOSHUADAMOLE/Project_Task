@@ -12,7 +12,7 @@ class UserResource extends JsonResource
      *
      * @return array<string, mixed>
      */
-    public function toArray(Request $request): array
+    public function toArray($request)
     {
         return [
             'id' => $this->id,
@@ -20,9 +20,14 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'job_title' => $this->job_title,
             'avatar' => $this->avatar,
-            'phone' => $this->phone,
-            'rate' => $this->rate,
-            'roles' => $this->roles->map->only('name')->flatten()->toArray(),
+            'roles' => $this->roles->map(fn($role) => [
+                'id' => $role->id,
+                'name' => (string) $role->name, // force string
+            ])->toArray(),
+            'teams' => $this->teams->map(fn($team) => [
+                'id' => $team->id,
+                'name' => (string) $team->name, // force string
+            ])->toArray(),
         ];
     }
 }

@@ -81,8 +81,15 @@ export default function Sidebar() {
       {
         label: "Teams",
         icon: IconUsers,
+        link: route("teams.index"),
+        active: route().current("teams.*"),
+        visible: can("view users"),
+      },
+      {
+        label: "All Members",
+        icon: IconUsers,
         link: route("users.index"),
-        active: route().current("users.*"),
+        active: route().current("users .*"),
         visible: can("view users"),
       },
       {

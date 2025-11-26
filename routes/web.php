@@ -20,6 +20,7 @@ use App\Http\Controllers\Task\CommentController;
 use App\Http\Controllers\Task\GroupController;
 use App\Http\Controllers\Task\TimeLogController;
 use App\Http\Controllers\TaskController;
+use App\Http\Controllers\TeamController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -96,6 +97,20 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     // Users
     Route::resource('users', UserController::class)->except(['show']);
     Route::post('users/{userId}/restore', [UserController::class, 'restore'])->name('users.restore');
+    Route::get('/users/{user}', [UserController::class, 'show'])->name('users.show');
+
+    //Teams
+    Route::resource('teams', TeamController::class);
+
+    //Team Members
+    Route::get('/teams/{team}/members', [TeamController::class, 'showMembers'])->name('teams.members');
+    Route::get('/teams/{team}/members', [TeamController::class, 'members'])
+    ->name('teams.members');
+    Route::delete('/teams/{team}/members/{user}', [TeamController::class, 'removeMember'])
+     ->name('teams.members.remove');
+
+
+
 
     // Invoices
     Route::resource('invoices', InvoiceController::class)->except(['show']);
