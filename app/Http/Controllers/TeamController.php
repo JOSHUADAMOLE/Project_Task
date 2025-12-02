@@ -11,6 +11,11 @@ class TeamController extends Controller
 {
     public function index()
     {
+        // Team Leader should not see all teams
+        if (auth()->user()->hasRole('Team Leader')) {
+            return redirect()->route('teams.show', auth()->user()->teams->first()->id);
+        }
+
         $teams = Team::withCount('users')->get();
 
         return Inertia::render('Teams/Index', [

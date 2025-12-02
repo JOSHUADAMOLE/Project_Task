@@ -1,45 +1,22 @@
 import TableRowActions from '@/components/TableRowActions';
-import { Link } from '@inertiajs/react';
-import { Badge, Group, Table, Text } from '@mantine/core';
+import { Text, Table, Badge } from '@mantine/core';
+
 
 export default function TableRow({ item }) {
   return (
     <Table.Tr key={item.id}>
       <Table.Td>
-        <Text
-          fz='sm'
-          fw={500}
-        >
+        <Text fz='sm' fw={500} c="orange">
           {item.name}
         </Text>
       </Table.Td>
       <Table.Td>
         <Text fz='sm'>{item.email}</Text>
-        <Text
-          fz='xs'
-          c='dimmed'
-        >
-          Email
+        <Text fz='xs' c='dimmed'>
         </Text>
       </Table.Td>
-      <Table.Td>
-        <Group gap='sm'>
-          {item.clients.map(item => (
-            <Link
-              href={route('clients.users.edit', item.id)}
-              key={item.id}
-            >
-              <Badge
-                variant='light'
-                color='orange'
-                tt='unset'
-              >
-                {item.name}
-              </Badge>
-            </Link>
-          ))}
-        </Group>
-      </Table.Td>
+      {/* Clients column removed */}
+
       {(can('edit client company') ||
         can('archive client company') ||
         can('restore client company')) && (

@@ -17,8 +17,12 @@ import UserButton from "./UserButton";
 import classes from "./css/NavBarNested.module.css";
 
 export default function Sidebar() {
-  const { version } = usePage().props;
+  const { version, auth } = usePage().props;
   const { items, setItems } = useNavigationStore();
+
+  // ROLE CHECKS
+  const isClient = auth.user.roles?.includes("client");
+  const isTeamLeader = auth.user.roles?.includes("Team Leader");
 
   useEffect(() => {
     setItems([
@@ -29,104 +33,126 @@ export default function Sidebar() {
         active: route().current("dashboard"),
         visible: true,
       },
+
       {
         label: "Projects",
         icon: IconListDetails,
         link: route("projects.index"),
         active: route().current("projects.*"),
-        visible: can("view projects"),
+
+        // Team Leader can only see THEIR projects (handled backend)
+        visible: can("view projects") || isTeamLeader,
       },
+
       {
         label: "Assign Work",
         icon: IconLayoutList,
         active: route().current("my-work.*"),
         opened: route().current("my-work.*"),
-        visible: can("view tasks") || can("view activities"),
+
+        // ❌ Team Leader & Client MUST NOT see it
+        visible: !isClient && true && (can("view tasks") || can("view activities")),
+
         links: [
           {
             label: "Tasks",
             link: route("my-work.tasks.index"),
             active: route().current("my-work.tasks.*"),
-            visible: can("view tasks"),
+            visible: !isClient && !isTeamLeader && can("view tasks"),
           },
           {
             label: "Activity",
             link: route("my-work.activity.index"),
             active: route().current("my-work.activity.*"),
-            visible: can("view activities"),
+            visible: !isClient && true && can("view activities"),
           },
         ],
       },
+
       {
-        label: "Clients",
+        label: "Companies",
         icon: IconBuildingSkyscraper,
-        active: route().current("clients.*"),
-        opened: route().current("clients.*"),
-        visible: can("view client users") || can("view client companies"),
-        links: [
-          {
-            label: "Users",
-            link: route("clients.users.index"),
-            active: route().current("clients.users.*"),
-            visible: can("view client users"),
-          },
-          {
-            label: "Companies",
-            link: route("clients.companies.index"),
-            active: route().current("clients.companies.*"),
-            visible: can("view client companies"),
-          },
-        ],
-      }, 
+        link: route("clients.companies.index"),
+        active: route().current("clients.companies.*"),
+
+        // ❌ Team Leader cannot view companies
+        visible: !isTeamLeader && can("view client companies"),
+      },
+
       {
         label: "Teams",
         icon: IconUsers,
         link: route("teams.index"),
         active: route().current("teams.*"),
-        visible: can("view users"),
+
+        // Admins and Team Leaders both need this
+        visible: can("view users") || isTeamLeader,
       },
+
       {
         label: "All Members",
         icon: IconUsers,
-        link: route("users.index"),
-        active: route().current("users .*"),
-        visible: can("view users"),
+        active: route().current("users.*"),
+        opened: route().current("users.*"),
+
+        // ❌ Hide from Team Leader
+        visible: !isTeamLeader && (can("view users") || can("view client users")),
+
+        links: [
+          {
+            label: "Client Users",
+            link: route("clients.users.index"),
+            active: route().current("clients.users.*"),
+            visible: !isTeamLeader && can("view client users"),
+          },
+          {
+            label: "Member Users",
+            link: route("users.index"),
+            active: route().current("users.*"),
+            visible: !isTeamLeader && can("view users"),
+          },
+        ],
       },
+
       {
         label: "Reports",
         icon: IconReportAnalytics,
         active: route().current("reports.*"),
         opened: route().current("reports.*"),
-        visible:true,
 
+        // ❌ Only Admins & Super Admin
+        visible: true,
         links: [
           {
             label: "Statistics",
             link: route("reports.work-statistics"),
             active: route().current("reports.work-statistics"),
-            visible:true,
-          }
+            visible: true,
+          },
         ],
       },
+
       {
         label: "Settings",
         icon: IconSettings,
         active: route().current("settings.*"),
         opened: route().current("settings.*"),
-        visible:
-          can("view roles") || can("view labels"),
+
+        // ❌ Team Leader cannot open settings
+        visible: !isTeamLeader && (can("view roles") || can("view labels")),
+
         links: [
           {
             label: "Roles",
             link: route("settings.roles.index"),
             active: route().current("settings.roles.*"),
-            visible: can("view roles"),
+            visible: !isTeamLeader && can("view roles"),
           },
           {
             label: "Labels",
             link: route("settings.labels.index"),
             active: route().current("settings.labels.*"),
-            visible: can("view labels"),
+            visible: !isTeamLeader && can("view labels"),
           },
         ],
       },

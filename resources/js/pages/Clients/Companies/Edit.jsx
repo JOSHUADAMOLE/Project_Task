@@ -8,20 +8,17 @@ import { usePage } from '@inertiajs/react';
 import {
   Anchor,
   Breadcrumbs,
-  Fieldset,
   Grid,
   Group,
-  MultiSelect,
-  Select,
   TextInput,
+  Select,
   Title,
+  Fieldset,
 } from '@mantine/core';
 
 const ClientCompanyEdit = () => {
-  const {
-    item,
-    dropdowns: { clients, countries, currencies },
-  } = usePage().props;
+  const { item, dropdowns: { countries } } = usePage().props;
+
   const [form, submit, updateValue] = useForm('post', route('clients.companies.update', item.id), {
     _method: 'put',
     name: item.name,
@@ -29,44 +26,24 @@ const ClientCompanyEdit = () => {
     postal_code: item.postal_code || '',
     city: item.city || '',
     country_id: item.country_id || '',
-    currency_id: item.currency_id || '',
     email: item.email || '',
     phone: item.phone || '',
     web: item.web || '',
-    iban: item.iban || '',
-    swift: item.swift || '',
-    business_id: item.business_id || '',
-    tax_id: item.tax_id || '',
-    vat: item.vat || '',
-    clients: item.clients.map(i => i.id.toString()),
   });
 
   return (
     <>
-      <Breadcrumbs
-        fz={14}
-        mb={30}
-      >
-        <Anchor
-          href='#'
-          onClick={() => redirectTo('clients.companies.index')}
-          fz={14}
-        >
+      <Breadcrumbs fz={14} mb={30}>
+        <Anchor href="#" onClick={() => redirectTo('clients.companies.index')} fz={14}>
           Companies
         </Anchor>
         <div>Edit</div>
       </Breadcrumbs>
 
-      <Grid
-        justify='space-between'
-        align='flex-end'
-        gutter='xl'
-        mb='lg'
-      >
+      <Grid justify='space-between' align='flex-end' gutter='xl' mb='lg'>
         <Grid.Col span='auto'>
           <Title order={1}>Edit company</Title>
         </Grid.Col>
-        <Grid.Col span='content'></Grid.Col>
       </Grid>
 
       <ContainerBox maw={600}>
@@ -80,33 +57,7 @@ const ClientCompanyEdit = () => {
             error={form.errors.name}
           />
 
-          <Select
-            label='Default currency'
-            placeholder='Select currency'
-            required
-            mt='md'
-            searchable={true}
-            value={form.data.currency_id?.toString()}
-            onChange={value => updateValue('currency_id', value)}
-            data={currencies}
-            error={form.errors.currency_id}
-          />
-
-          <MultiSelect
-            label='Clients'
-            placeholder='Select clients'
-            required
-            mt='md'
-            value={form.data.clients}
-            onChange={values => updateValue('clients', values)}
-            data={clients}
-            error={form.errors.clients}
-          />
-
-          <Fieldset
-            legend='Location'
-            mt='xl'
-          >
+          <Fieldset legend='Location' mt='xl'>
             <TextInput
               label='Address'
               placeholder='Address'
@@ -135,75 +86,17 @@ const ClientCompanyEdit = () => {
               />
             </Group>
 
-            <Select
+            <TextInput
               label='Country'
-              placeholder='Select country'
+              placeholder='Country'
               mt='md'
-              searchable={true}
-              value={form.data.country_id?.toString()}
-              onChange={value => updateValue('country_id', value)}
-              data={countries}
+              value={form.data.country_id}
+              onChange={e => updateValue('country_id', e.target.value)}
               error={form.errors.country_id}
             />
           </Fieldset>
 
-          <Fieldset
-            legend='Details'
-            mt='xl'
-          >
-            <TextInput
-              label='Business ID'
-              placeholder='Business ID'
-              value={form.data.business_id}
-              onChange={e => updateValue('business_id', e.target.value)}
-              error={form.errors.business_id}
-            />
-
-            <TextInput
-              label='Tax ID'
-              placeholder='Tax ID'
-              mt='md'
-              value={form.data.tax_id}
-              onChange={e => updateValue('tax_id', e.target.value)}
-              error={form.errors.tax_id}
-            />
-
-            <TextInput
-              label='VAT'
-              placeholder='VAT'
-              mt='md'
-              value={form.data.vat}
-              onChange={e => updateValue('vat', e.target.value)}
-              error={form.errors.vat}
-            />
-          </Fieldset>
-
-          <Fieldset
-            legend='Finance'
-            mt='xl'
-          >
-            <TextInput
-              label='IBAN'
-              placeholder='IBAN'
-              value={form.data.iban}
-              onChange={e => updateValue('iban', e.target.value)}
-              error={form.errors.iban}
-            />
-
-            <TextInput
-              label='SWIFT'
-              placeholder='SWIFT'
-              mt='md'
-              value={form.data.swift}
-              onChange={e => updateValue('swift', e.target.value)}
-              error={form.errors.swift}
-            />
-          </Fieldset>
-
-          <Fieldset
-            legend='Contact'
-            mt='xl'
-          >
+          <Fieldset legend='Contact' mt='xl'>
             <Group grow>
               <TextInput
                 label='Email'
@@ -232,10 +125,7 @@ const ClientCompanyEdit = () => {
             />
           </Fieldset>
 
-          <Group
-            justify='space-between'
-            mt='xl'
-          >
+          <Group justify='space-between' mt='xl'>
             <BackButton route='clients.companies.index' />
             <ActionButton loading={form.processing}>Update</ActionButton>
           </Group>

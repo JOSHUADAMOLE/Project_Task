@@ -1,6 +1,6 @@
 import React from "react";
 import { usePage, Link } from "@inertiajs/react";
-import { Card, Title, Avatar, Group, Text, Grid, Button } from "@mantine/core";
+import { Card, Title, Avatar, Group, Text, Grid, Button, Badge, Box } from "@mantine/core";
 import Layout from "@/layouts/MainLayout";
 import { getInitials } from "@/utils/user";
 
@@ -8,13 +8,23 @@ const TeamShow = () => {
   const { team, members } = usePage().props;
   const safeMembers = Array.isArray(members) ? members : [];
 
+  // Sort members so the Team Leader is on top
+  const sortedMembers = [...safeMembers].sort((a, b) => {
+    const aIsLeader = a.roles?.some((role) => role.name === "Team Leader");
+    const bIsLeader = b.roles?.some((role) => role.name === "Team Leader");
+
+    if (aIsLeader && !bIsLeader) return -1;
+    if (!aIsLeader && bIsLeader) return 1;
+    return 0;
+  });
+
   const handleRemove = (userId, userName) => {
     if (confirm(`Are you sure you want to remove ${userName} from this team?`)) {
       fetch(route("teams.members.remove", { team: team.id, user: userId }), {
         method: "DELETE",
         headers: {
           "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content,
-          "Accept": "application/json",
+          Accept: "application/json",
         },
       })
         .then((res) => {
@@ -39,55 +49,82 @@ const TeamShow = () => {
       </Group>
 
       <Grid>
-        {safeMembers.length > 0 ? (
-          safeMembers.map((user) => (
-            <Grid.Col span={12} md={6} key={user.id}>
-              <Card shadow="sm" radius="md" p="md" withBorder>
-                <Group position="apart">
-                  <Group>
-                    <Avatar radius="xl" color="blue">
-                      {getInitials(user.name)}
-                    </Avatar>
+        {sortedMembers.length > 0 ? (
+          sortedMembers.map((user) => {
+            const isLeader = user.roles?.some((role) => role.name === "Team Leader");
 
-                    <div>
-                      <Text fw={500}>{user.name}</Text>
-                      <Text size="sm" c="dimmed">
-                        {user.email}
-                      </Text>
-                      <Text size="sm" c="dimmed">
-                        {user.roles && user.roles.length > 0
-                          ? user.roles[0].name.charAt(0).toUpperCase() +
-                            user.roles[0].name.slice(1)
-                          : "No role"}
-                      </Text>
-                    </div>
-                  </Group>
-
-                  <Group spacing="xs">
-                    <Button
-                      size="xs"
-                      radius="xl"
-                      variant="light"
-                      component={Link}
-                      href={route("users.show", user.id)}
+            return (
+              <Grid.Col span={12} md={6} key={user.id}>
+                <Box sx={{ position: "relative" }}>
+                  {isLeader && (
+                    <Badge
+                      color="blue"
+                      variant="filled"
+                      sx={{ position: "absolute", top: 10, right: 10, zIndex: 1 }}
                     >
-                      View
-                    </Button>
+                      Team Leader
+                    </Badge>
+                  )}
+                  <Card
+                    shadow="sm"
+                    radius="md"
+                    p="md"
+                    withBorder
+                    sx={{
+                      borderColor: isLeader ? "blue" : undefined,
+                      backgroundColor: isLeader ? "#e7f5ff" : undefined,
+                    }}
+                  >
+                    <Group position="apart">
+                      <Group>
+                        <Avatar
+                          radius="xl"
+                          color={isLeader ? "blue" : "gray"}
+                          size={isLeader ? 60 : 40} // larger avatar for leader
+                        >
+                          {getInitials(user.name)}
+                        </Avatar>
 
-                    <Button
-                      size="xs"
-                      color="red"
-                      radius="xl"
-                      variant="light"
-                      onClick={() => handleRemove(user.id, user.name)}
-                    >
-                      Remove
-                    </Button>
-                  </Group>
-                </Group>
-              </Card>
-            </Grid.Col>
-          ))
+                        <div>
+                          <Text fw={500}>{user.name}</Text>
+                          <Text size="sm" c="dimmed">
+                            {user.email}
+                          </Text>
+                          <Text size="sm" c="dimmed">
+                            {user.roles && user.roles.length > 0
+                              ? user.roles[0].name
+                              : "No role"}
+                          </Text>
+                        </div>
+                      </Group>
+
+                      <Group spacing="xs">
+                        <Button
+                          size="xs"
+                          radius="xl"
+                          variant="light"
+                          component={Link}
+                          href={route("users.show", user.id)}
+                        >
+                          View
+                        </Button>
+
+                        <Button
+                          size="xs"
+                          color="red"
+                          radius="xl"
+                          variant="light"
+                          onClick={() => handleRemove(user.id, user.name)}
+                        >
+                          Remove
+                        </Button>
+                      </Group>
+                    </Group>
+                  </Card>
+                </Box>
+              </Grid.Col>
+            );
+          })
         ) : (
           <Text>No members in this team yet.</Text>
         )}
