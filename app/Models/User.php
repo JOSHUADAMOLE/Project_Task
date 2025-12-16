@@ -122,4 +122,20 @@ class User extends Authenticatable implements AuditableContract, CanResetPasswor
     {
         return $this->belongsToMany(Team::class, 'team_user', 'user_id', 'team_id');
     }
+
+    public function teamMembers()
+    {
+        // Get all users in the same team(s) except the leader
+        return $this->teams()
+            ->with('users') // eager load users in each team
+            ->get()
+            ->pluck('users') // get the users collection from each team
+            ->flatten() // merge collections
+            ->unique('id') // remove duplicates if a user is in multiple teams
+            ->where('id', '!=', $this->id) // exclude the leader themselves
+            ->values(); // reset keys
+    }
+
+
+
 }

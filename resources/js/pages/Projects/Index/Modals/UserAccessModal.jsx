@@ -6,24 +6,22 @@ import axios from "axios";
 import { useEffect, useState } from "react";
 
 function ModalForm({ item }) {
-  const [requestPending, setRequestPending] = useState(true);
-  const [users, setUsers] = useState([]);
-  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [usersDropdown, setUsersDropdown] = useState([]);
+  const [clientsDropdown, setClientsDropdown] = useState([]);
 
+  // Initialize form with existing user access
   const [form, submit, updateValue] = useForm(
     "post",
-    route("projects.user_access", item.id),
+    route("projects.user_access", item?.id),
     {
-      users: item.users_with_access
-        .filter((user) => !hasRoles(user, ["admin", "client"]))
-        .map((i) => i.id.toString()),
-      clients: item.users_with_access
-        .filter(
-          (user) =>
-            hasRoles(user, ["client"]) && user.reason !== "company owner",
-        )
-        .map((i) => i.id.toString()),
-    },
+      users: item?.users_with_access
+        ?.filter((user) => hasRoles(user, ["team leader"]))
+        .map((u) => u.id.toString()) || [],
+      clients: item?.users_with_access
+        ?.filter((user) => hasRoles(user, ["client"]) && user.reason !== "company owner")
+        .map((u) => u.id.toString()) || [],
+    }
   );
 
   const submitModal = (event) => {
@@ -34,21 +32,33 @@ function ModalForm({ item }) {
   };
 
   useEffect(() => {
+    if (!item?.id) return;
+
+    setLoading(true);
+
     axios
-      .get(route("dropdown.values", ["users", "clients"]))
+      .get(route("dropdown.values")) // Make sure this route returns { users: [...], clients: [...] }
       .then(({ data }) => {
-        setUsers([...data.users]);
-        setClients([...data.clients]);
+        // Only team leaders for the users dropdown
+        const teamLeaders = (data.users || [])
+          .filter((user) => hasRoles(user, ["team leader"]))
+          .map((u) => ({ value: u.id.toString(), label: u.name }));
+
+        // Only clients for the company selected in the project
+        const companyClients = (data.clients || [])
+          .filter((c) => c.client_company_id === item.client_company_id)
+          .map((c) => ({ value: c.id.toString(), label: c.name }));
+
+        setUsersDropdown(teamLeaders);
+        setClientsDropdown(companyClients);
       })
-      .catch(() =>
-        alert("Something went wrong, failed to load dropdown values"),
-      )
-      .finally(() => setRequestPending(false));
-  }, [form.data]);
+      .catch(() => alert("Something went wrong, failed to load dropdown values"))
+      .finally(() => setLoading(false));
+  }, [item]);
 
   return (
     <form onSubmit={submitModal}>
-      {requestPending ? (
+      {loading ? (
         <>
           <Skeleton height={10} width={50} mt={8} radius="xl" />
           <Skeleton height={25} mt={10} radius="xl" />
@@ -59,12 +69,12 @@ function ModalForm({ item }) {
       ) : (
         <>
           <MultiSelect
-            label="Users"
-            placeholder="Select users"
+            label="Team Leaders"
+            placeholder="Select team leaders"
             searchable
-            value={requestPending ? [] : form.data.users}
+            value={form.data.users}
             onChange={(values) => updateValue("users", values)}
-            data={users}
+            data={usersDropdown}
             error={form.errors.users}
           />
 
@@ -73,21 +83,16 @@ function ModalForm({ item }) {
             placeholder="Select clients"
             searchable
             mt="md"
-            value={requestPending ? [] : form.data.clients}
+            value={form.data.clients}
             onChange={(values) => updateValue("clients", values)}
-            data={clients}
+            data={clientsDropdown}
             error={form.errors.clients}
           />
         </>
       )}
 
       <Flex justify="flex-end" mt="xl">
-        <Button
-          type="submit"
-          w={100}
-          disabled={requestPending}
-          loading={form.processing}
-        >
+        <Button type="submit" w={100} disabled={loading} loading={form.processing}>
           Save
         </Button>
       </Flex>
@@ -97,11 +102,7 @@ function ModalForm({ item }) {
 
 const UserAccessModal = (item) => {
   modals.open({
-    title: (
-      <Text size="xl" fw={700} mb={-10}>
-        User access
-      </Text>
-    ),
+    title: <Text size="xl" fw={700} mb={-10}>User Access</Text>,
     centered: true,
     padding: "xl",
     overlayProps: { backgroundOpacity: 0.55, blur: 3 },

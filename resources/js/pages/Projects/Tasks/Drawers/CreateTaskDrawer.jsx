@@ -20,12 +20,16 @@ import classes from './css/TaskDrawer.module.css';
 
 export function CreateTaskDrawer() {
   const { create, closeCreateTask } = useTaskDrawerStore();
-  const { usersWithAccessToProject, taskGroups, project } = usePage().props;
+  const { assignableUsers, subscribers, taskGroups, project } = usePage().props;
+  const assignableUsersFromController = assignableUsers?.map(user => ({
+    value: user.id.toString(),
+    label: user.name,
+  }));
 
   const initial = {
     group_id: create.group_id ? create.group_id.toString() : '',
     subscribed_users: [],
-    assigned_to_user_id: [], 
+    assigned_to_user_id: '', 
     name: '',
     description: '',
     due_on: null,
@@ -70,29 +74,15 @@ export function CreateTaskDrawer() {
     <Drawer
       opened={create.opened}
       onClose={closeDrawer}
-      title={
-        <Text fz={rem(28)} fw={600} ml={25} my="sm">
-          Add new task
-        </Text>
-      }
+      title={<Text fz={rem(28)} fw={600} ml={25} my="sm">Add new task</Text>}
       position="right"
       size={1000}
       overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
-      transitionProps={{
-        transition: 'slide-left',
-        duration: 400,
-        timingFunction: 'ease',
-      }}
+      transitionProps={{ transition: 'slide-left', duration: 400, timingFunction: 'ease' }}
     >
       <form
         onSubmit={(event) =>
-          submit(event, {
-            data: {
-              ...form.data,
-              assigned_to_user_id: Array.isArray(form.data.assigned_to_user_id) ? form.data.assigned_to_user_id : [],
-            },
-            onSuccess: () => closeDrawer(true),
-          })
+          submit(event, { onSuccess: () => closeDrawer(true) })
         }
         className={classes.inner}
       >
@@ -101,7 +91,6 @@ export function CreateTaskDrawer() {
             label="Task Name"
             placeholder="Enter task name"
             required
-            data-autofocus
             value={form.data.name}
             onChange={(e) => updateValue('name', e.target.value)}
             error={form.errors.name}
@@ -111,6 +100,7 @@ export function CreateTaskDrawer() {
             mt="xl"
             placeholder="Task description"
             height={200}
+            value={form.data.description}
             onChange={(content) => updateValue('description', content)}
           />
 
@@ -120,18 +110,18 @@ export function CreateTaskDrawer() {
             onChange={(files) => updateValue('attachments', files)}
             remove={removeAttachment}
           />
+
+          {/* Subscribers: admins and clients */}
           <MultiSelect
             label="Subscribers"
             placeholder="Select subscribers"
             searchable
             mt="md"
-            value={form.data.subscribed_users || []}
+            value={form.data.subscribed_users}
             onChange={(values) => updateValue('subscribed_users', values)}
-            data={usersWithAccessToProject.map((i) => ({
-              value: i.id.toString(),
-              label: i.name,
-            }))}
+            data={subscribers}
           />
+
           {/* Task Group */}
           <Select
             label="Task Group"
@@ -140,26 +130,19 @@ export function CreateTaskDrawer() {
             mt="md"
             value={form.data.group_id}
             onChange={(value) => updateValue('group_id', value)}
-            data={taskGroups.map((i) => ({
-              value: i.id.toString(),
-              label: i.name,
-            }))}
+            data={(taskGroups || []).map(g => ({ value: g.id.toString(), label: g.name }))}
             error={form.errors.group_id}
           />
 
-          {/* Multiple assignees */}
-          <MultiSelect
+          {/* Assignees: team leader's members */}
+          <Select
             label="Assignees"
             placeholder="Select assignees"
             searchable
             mt="md"
             value={form.data.assigned_to_user_id}
-            onChange={(values) => updateValue('assigned_to_user_id', values)}
-            data={usersWithAccessToProject.map((i) => ({
-              value: i.id.toString(),
-              label: i.name,
-            }))}
-            error={form.errors.assigned_to_user_id}
+            onChange={(value) => updateValue('assigned_to_user_id', value)}
+            data={assignableUsersFromController || []} // ✅ make sure this matches controller prop
           />
 
           <DateInput
@@ -174,15 +157,9 @@ export function CreateTaskDrawer() {
           />
 
           <Flex justify="space-between" mt="xl">
-            <Button
-              variant="transparent"
-              w={100}
-              disabled={form.processing}
-              onClick={closeDrawer}
-            >
+            <Button variant="transparent" w={100} disabled={form.processing} onClick={closeDrawer}>
               Cancel
             </Button>
-
             <Button type="submit" w={120} loading={form.processing}>
               Add Task
             </Button>

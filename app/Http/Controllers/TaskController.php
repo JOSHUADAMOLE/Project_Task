@@ -11,10 +11,8 @@ use App\Events\Task\TaskRestored;
 use App\Events\Task\TaskUpdated;
 use App\Http\Requests\Task\StoreTaskRequest;
 use App\Http\Requests\Task\UpdateTaskRequest;
-use App\Models\Label;
 use App\Models\Project;
 use App\Models\Task;
-use App\Models\TaskGroup;
 use App\Services\PermissionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -30,54 +28,74 @@ class TaskController extends Controller
 
         $user = $request->user();
 
-        $groups = $project
-            ->taskGroups()
-            ->when($request->has('archived'), fn($query) => $query->onlyArchived())
-            ->get();
+        // -----------------------------
+        // All task groups in this project
+        // -----------------------------
+        $groups = $project->taskGroups()->get();
 
-        // ✅ ADMIN: See all tasks (from all projects)
-        if ($user->hasRole('admin')) {
-            $groupedTasks = TaskGroup::with([
-                    'project' => fn($query) => $query->withArchived(),
-                    'tasks' => fn($query) => $query
-                        ->withDefault()
-                        ->when($request->has('archived'), fn($query) => $query->onlyArchived())
-                        ->when(!$request->has('status'), fn($query) => $query->whereNull('completed_at'))
-                        ->get(),
+        // -----------------------------
+        // Assignable Users: team leader's members
+        // -----------------------------
+        // Assignable Users: team leader's members
+        $assignableUsers = collect();
+        if ($user->hasRole('team leader')) {
+            $assignableUsers = $user->teamMembers()
+                ->map(fn ($member) => [
+                    'value' => (string) $member->id,
+                    'label' => $member->name,
                 ])
-                ->get()
-                ->mapWithKeys(fn($group) => [$group->id => $group->tasks]);
-        } 
-        // ✅ USERS: Only see their own tasks under that project
-        else {
-            $groupedTasks = $project
-                ->taskGroups()
-                ->with(['project' => fn($query) => $query->withArchived()])
-                ->get()
-                ->mapWithKeys(function (TaskGroup $group) use ($request, $project, $user) {
-                    $query = Task::where('project_id', $project->id)
-                        ->where('group_id', $group->id)
-                        ->searchByQueryString()
-                        ->filterByQueryString()
-                        ->when($request->user()->hasRole('client'), fn($query) => $query->where('hidden_from_clients', false))
-                        ->when($request->has('archived'), fn($query) => $query->onlyArchived())
-                        ->when(!$request->has('status'), fn($query) => $query->whereNull('completed_at'))
-                        ->withDefault()
-                        ->when($project->isArchived(), fn($query) => $query->with(['project' => fn($query) => $query->withArchived()]))
-                        ->where('assigned_to_user_id', $user->id);
-
-                    return [$group->id => $query->get()];
-                });
+                ->values();
         }
 
+
+        // -----------------------------
+        // Subscribers: admins and clients
+        // -----------------------------
+        $subscribers = PermissionService::usersWithAccessToProject($project)
+            ->filter(function ($u) {
+                $role = is_array($u) ? ($u['role'] ?? null) : ($u->role ?? null);
+                return in_array($role, ['admin', 'client']);
+            })
+            ->map(function ($u) {
+                return [
+                    'value' => (string) (is_array($u) ? $u['id'] : $u->id),
+                    'label' => is_array($u) ? $u['name'] : $u->name,
+                ];
+            })
+            ->values();
+
+        // Ensure we always have collections
+        if (!$assignableUsers) {
+            $assignableUsers = collect();
+        }
+
+        if (!$subscribers) {
+            $subscribers = collect();
+        }
+
+        // -----------------------------
+        // Grouped tasks
+        // -----------------------------
+        $groupedTasks = $project
+            ->taskGroups()
+            ->with(['tasks' => function ($q) use ($request) {
+                $q->withDefault()
+                    ->when(!$request->has('status'), fn($q) => $q->whereNull('completed_at'));
+            }])
+            ->get()
+            ->mapWithKeys(fn($group) => [$group->id => $group->tasks]);
+
+        // -----------------------------
+        // Return to Inertia
+        // -----------------------------
         return Inertia::render('Projects/Tasks/Index', [
             'project' => $project,
-            'usersWithAccessToProject' => PermissionService::usersWithAccessToProject($project),
-            'labels' => Label::get(['id', 'name', 'color']),
             'taskGroups' => $groups,
             'groupedTasks' => $groupedTasks,
+            'assignableUsers' => $assignableUsers,
+            'subscribers' => $subscribers,
             'openedTask' => $task ? $task->loadDefault() : null,
-            'currency' => null, 
+            'currency' => null,
         ]);
     }
 
@@ -148,7 +166,7 @@ class TaskController extends Controller
         return redirect()->back()->success('Task archived', 'The task was successfully archived.');
     }
 
-    public function restore(Project $project, Task $task)
+    public function restore(Project $project, Task $task): RedirectResponse
     {
         $this->authorize('restore', [$task, $project]);
         $task->unArchive();

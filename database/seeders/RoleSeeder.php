@@ -12,8 +12,9 @@ class RoleSeeder extends Seeder
         'qa engineer',
         'designer',
         'client',
-        'manager',
+        'head implementation',
         'admin',
+        'team leader',
     ];
 
     /**

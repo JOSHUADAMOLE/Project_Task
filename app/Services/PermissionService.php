@@ -78,25 +78,38 @@ class PermissionService
             return self::$usersWithAccessToProject[$project->id];
         }
 
+        // ADMINS
         $admins = User::role('admin')
             ->with('roles:id,name')
             ->get(['id', 'name', 'avatar'])
-            ->map(fn ($user) => [...$user->toArray(), 'reason' => 'admin']);
+            ->map(fn ($user) => [
+                ...$user->toArray(),
+                'role' => 'admin',
+                'reason' => 'admin',
+            ]);
 
-        // ✅ Safe null check for clientCompany
-        $owners = collect();
-        if ($project->clientCompany) {
-            $owners = $project
-                ->clientCompany
-                ->clients
-                ->load('roles:id,name')
-                ->map(fn ($user) => [...$user->toArray(), 'reason' => 'company owner']);
-        }
 
+        // CLIENT OWNERS
+        $owners = $project->clientCompany
+            ->clients
+            ->load('roles:id,name')
+            ->map(fn ($user) => [
+                ...$user->toArray(),
+                'role' => 'client',
+                'reason' => 'company owner',
+            ]);
+
+
+        // PROJECT MEMBERS / TEAM
         $givenAccess = $project
             ->users
             ->load('roles:id,name')
-            ->map(fn ($user) => [...$user->toArray(), 'reason' => 'given access']);
+            ->map(fn ($user) => [
+                ...$user->toArray(),
+                'role' => $user->roles->first()?->name,
+                'reason' => 'given access',
+            ]);
+
 
         return self::$usersWithAccessToProject[$project->id] = collect([
             ...$admins,

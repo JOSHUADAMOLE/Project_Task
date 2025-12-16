@@ -20,9 +20,13 @@ const ProjectCreate = ({ dropdowns: { users, companies } }) => {
   const [form, submit, updateValue] = useForm('post', route('projects.store'), {
     name: '',
     description: '',
-    users: [],
-    client_company_id: '', 
+    team_leader_id: '',
+    client_company_id: '',
   });
+
+const teamLeaders = (users || []).filter(user =>
+  user.roles?.some(role => role.name === 'team leader')
+);
 
   return (
     <>
@@ -76,15 +80,17 @@ const ProjectCreate = ({ dropdowns: { users, companies } }) => {
             data={companies}
             error={form.errors.client_company_id}
           />
-          <MultiSelect
-            label="Grant access to users"
-            placeholder="Select users"
+          
+          <Select
+            label="Team Leader"
+            placeholder="Select team leader"
+            required
             mt="md"
             searchable
-            value={form.data.users}
-            onChange={values => updateValue('users', values)}
-            data={users}
-            error={form.errors.users}
+            value={form.data.team_leader_id}
+            onChange={value => updateValue('team_leader_id', value)}
+            data={users} // users from backend are already filtered + formatted
+            error={form.errors.team_leader_id}
           />
 
           <Group justify="space-between" mt="xl">

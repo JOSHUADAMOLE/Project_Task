@@ -58,8 +58,15 @@ class ProjectController extends Controller
     {
         return Inertia::render('Projects/Create', [
             'dropdowns' => [
-                'companies' => ClientCompany::dropdownValues(), // ✅ Company list
-                'users' => User::userDropdownValues(),
+                'companies' => ClientCompany::dropdownValues(),
+                'users' => User::role('team leader')
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(fn ($u) => [
+                        'value' => (string) $u->id,
+                        'label' => $u->name,
+                    ])
+                    ->toArray(),
             ],
         ]);
     }
@@ -75,8 +82,9 @@ class ProjectController extends Controller
 
         $project = Project::create($data);
 
-        if (!empty($data['users'])) {
-            $project->users()->attach($data['users']);
+        // ✅ Assign team leader to project_user
+        if (!empty($data['team_leader_id'])) {
+            $project->users()->attach($data['team_leader_id']);
         }
 
         // Default task groups
@@ -97,10 +105,15 @@ class ProjectController extends Controller
             'item' => $project,
             'dropdowns' => [
                 'companies' => ClientCompany::dropdownValues(),
-                'users' => User::userDropdownValues(),
+                'users' => User::role('team leader')
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(fn($i) => ['value' => (string) $i->id, 'label' => $i->name])
+                    ->toArray(),
             ],
         ]);
     }
+
 
     public function update(UpdateProjectRequest $request, Project $project)
     {
@@ -113,8 +126,9 @@ class ProjectController extends Controller
 
         $project->update($data);
 
-        if (!empty($data['users'])) {
-            $project->users()->sync($data['users']);
+        if (!empty($data['team_leader_id'])) {
+            // ✅ keep only one team leader
+            $project->users()->sync([$data['team_leader_id']]);
         }
 
         return redirect()

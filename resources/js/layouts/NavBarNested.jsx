@@ -8,6 +8,7 @@ import {
   IconReportAnalytics,
   IconBuildingSkyscraper,
   IconSettings,
+  IconUsersGroup,
   IconUsers,
   IconListDetails,
 } from "@tabler/icons-react";
@@ -81,7 +82,7 @@ export default function Sidebar() {
 
       {
         label: "Teams",
-        icon: IconUsers,
+        icon: IconUsersGroup,
         link: route("teams.index"),
         active: route().current("teams.*"),
 
@@ -90,7 +91,7 @@ export default function Sidebar() {
       },
 
       {
-        label: "All Members",
+        label: "All Users",
         icon: IconUsers,
         active: route().current("users.*"),
         opened: route().current("users.*"),

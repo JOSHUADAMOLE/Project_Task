@@ -11,7 +11,6 @@ import {
   Grid,
   Group,
   Select,
-  MultiSelect,
   TextInput,
   Textarea,
   Title,
@@ -20,13 +19,22 @@ import {
 const ProjectEdit = ({ dropdowns: { users, companies } }) => {
   const { item } = usePage().props;
 
-  const [form, submit, updateValue] = useForm('post', route('projects.update', item.id), {
-    _method: 'put',
-    name: item.name,
-    description: item.description || '',
-    users: item.users.map(i => i.id.toString()),
-    client_company_id: item.client_company_id ? item.client_company_id.toString() : '',
-  });
+  // 1️⃣ Filter team leaders and format for the Select
+  const teamLeaders = (users || [])
+    .filter(user => user.roles?.some(role => role.name === 'team leader'))
+    .map(user => ({ value: user.id.toString(), label: user.name }));
+
+  const [form, submit, updateValue] = useForm(
+    'post',
+    route('projects.update', item.id),
+    {
+      _method: 'put',
+      name: item.name,
+      description: item.description || '',
+      client_company_id: item.client_company_id?.toString() || '',
+      team_leader_id: item.team_leader_id?.toString() || '',
+    }
+  );
 
   return (
     <>
@@ -41,7 +49,6 @@ const ProjectEdit = ({ dropdowns: { users, companies } }) => {
         <Grid.Col span="auto">
           <Title order={1}>Edit project</Title>
         </Grid.Col>
-        <Grid.Col span="content"></Grid.Col>
       </Grid>
 
       <ContainerBox maw={500}>
@@ -66,26 +73,29 @@ const ProjectEdit = ({ dropdowns: { users, companies } }) => {
             value={form.data.description}
             onChange={e => updateValue('description', e.target.value)}
           />
+
           <Select
-            label='Company requesting work'
-            placeholder='Select company'
+            label="Company requesting work"
+            placeholder="Select company"
             required
-            mt='md'
+            mt="md"
             value={form.data.client_company_id}
             onChange={value => updateValue('client_company_id', value)}
             data={companies}
             error={form.errors.client_company_id}
           />
-          <MultiSelect
-            label="Grant access to users"
-            placeholder="Select users"
+
+          <Select
+            label="Team Leader"
+            placeholder="Select team leader"
+            required
             mt="md"
-            searchable
-            value={form.data.users}
-            onChange={values => updateValue('users', values)}
-            data={users}
-            error={form.errors.users}
+            value={form.data.team_leader_id}
+            onChange={value => updateValue('team_leader_id', value)}
+            data={users} // <- directly use users from backend
+            error={form.errors.team_leader_id}
           />
+
 
           <Group justify="space-between" mt="xl">
             <BackButton route="projects.index" />
@@ -95,7 +105,7 @@ const ProjectEdit = ({ dropdowns: { users, companies } }) => {
       </ContainerBox>
     </>
   );
-};
+}; 
 
 ProjectEdit.layout = page => <Layout title="Edit project">{page}</Layout>;
 
