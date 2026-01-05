@@ -99,7 +99,15 @@ class Task extends Model implements AuditableContract, Sortable
         static::addGlobalScope('ordered', function ($query) {
             $query->ordered();
         });
+
+        // Auto-assign creator for new tasks
+        static::creating(function ($task) {
+            if (! $task->created_by_user_id && auth()->check()) {
+                $task->created_by_user_id = auth()->id();
+            }
+        });
     }
+
 
     public function scopeWithDefault(Builder $query)
     {

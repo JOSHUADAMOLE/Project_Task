@@ -13,7 +13,12 @@ class UpdateTaskRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+
+        $project = $this->route('project');
+        $task = $this->route('task');
+
+        return $user->can('update', [$task, $project]);
     }
 
     /**

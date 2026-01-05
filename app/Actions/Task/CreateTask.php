@@ -33,9 +33,14 @@ class CreateTask
 
             // Assign users
             if (!empty($data['assigned_to_user_id'])) {
-                $assignedIds = array_map('intval', $data['assigned_to_user_id']);
+                $assignedIds = array_map(
+                    'intval',
+                    (array) $data['assigned_to_user_id']
+                );
+
                 $task->assignedUsers()->sync($assignedIds);
             }
+
 
             // Attach subscribers
             if (!empty($data['subscribed_users'])) {

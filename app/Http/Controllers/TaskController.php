@@ -36,17 +36,13 @@ class TaskController extends Controller
         // -----------------------------
         // Assignable Users: team leader's members
         // -----------------------------
-        // Assignable Users: team leader's members
         $assignableUsers = collect();
-        if ($user->hasRole('team leader')) {
-            $assignableUsers = $user->teamMembers()
-                ->map(fn ($member) => [
-                    'value' => (string) $member->id,
-                    'label' => $member->name,
-                ])
-                ->values();
+        if ($user->hasRole('Team Leader')) {
+            $assignableUsers = $user->teamMembers()->map(fn($member) => [
+                'id' => $member->id,
+                'name' => $member->name,
+            ]);
         }
-
 
         // -----------------------------
         // Subscribers: admins and clients
@@ -58,23 +54,14 @@ class TaskController extends Controller
             })
             ->map(function ($u) {
                 return [
-                    'value' => (string) (is_array($u) ? $u['id'] : $u->id),
-                    'label' => is_array($u) ? $u['name'] : $u->name,
+                    'id' => is_array($u) ? $u['id'] : $u->id,
+                    'name' => is_array($u) ? $u['name'] : $u->name,
                 ];
             })
             ->values();
 
-        // Ensure we always have collections
-        if (!$assignableUsers) {
-            $assignableUsers = collect();
-        }
-
-        if (!$subscribers) {
-            $subscribers = collect();
-        }
-
         // -----------------------------
-        // Grouped tasks
+        // Grouped tasks with default relations
         // -----------------------------
         $groupedTasks = $project
             ->taskGroups()
@@ -86,6 +73,16 @@ class TaskController extends Controller
             ->mapWithKeys(fn($group) => [$group->id => $group->tasks]);
 
         // -----------------------------
+        // Opened task for editing
+        // -----------------------------
+        $openedTask = null;
+        if ($task) {
+            $openedTask = $task
+                ->load($task->defaultWith) // load all default relations
+                ->load(['createdByUser:id,name']); // ensure createdByUser has id & name
+        }
+
+        // -----------------------------
         // Return to Inertia
         // -----------------------------
         return Inertia::render('Projects/Tasks/Index', [
@@ -94,10 +91,12 @@ class TaskController extends Controller
             'groupedTasks' => $groupedTasks,
             'assignableUsers' => $assignableUsers,
             'subscribers' => $subscribers,
-            'openedTask' => $task ? $task->loadDefault() : null,
+            'openedTask' => $openedTask,
+            'authUser' => $request->user()->load('roles'),
             'currency' => null,
         ]);
     }
+
 
     public function store(StoreTaskRequest $request, Project $project): RedirectResponse
     {

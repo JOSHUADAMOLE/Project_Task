@@ -29,8 +29,28 @@ class TaskPolicy
      */
     public function update(User $user, Task $task, Project $project): bool
     {
-        return $user->hasPermissionTo('edit task') && $user->hasProjectAccess($project);
+        // Must have project access
+        if (! $user->hasProjectAccess($project)) {
+            return false;
+        }
+
+        // Admin can edit any task
+        if ($user->hasRole('Admin')) {
+            return true;
+        }
+
+        // Team Leader can edit ONLY tasks they created
+        if (
+            $user->hasRole('Team Leader') &&
+            $task->created_by_user_id === $user->id
+        ) {
+            return true;
+        }
+
+        // Members cannot edit
+        return false;
     }
+
 
     /**
      * Determine whether the user can delete the model.

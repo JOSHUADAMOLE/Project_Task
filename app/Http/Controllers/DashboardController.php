@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Comment;
 use App\Models\Project;
 use App\Models\Task;
+use App\Models\User;
 use App\Services\PermissionService;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -15,14 +17,28 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
-        // Default project access (for admin/internal users)
+        // Start with projects user can access directly
         $projectIds = PermissionService::projectsThatUserCanAccess($user)->pluck('id');
 
-        // If client, include projects by company association
+        // Include projects assigned to team leaders in the same teams
+        $teamLeaderProjectIds = Project::whereHas('users', function ($q) use ($user) {
+            $q->whereHas('teams', function ($q2) use ($user) {
+                $q2->whereIn('teams.id', $user->teams()->pluck('teams.id'));
+            })
+            ->whereHas('roles', function ($q3) {
+                $q3->where('name', 'team leader');
+            });
+        })->pluck('id');
+
+        $projectIds = $projectIds->merge($teamLeaderProjectIds);
+
+        // Include client company projects for clients
         if ($user->hasRole('client')) {
-            $companyProjectIds = Project::whereIn('client_company_id', $user->clientCompanies->pluck('id'))->pluck('id');
-            $projectIds = $projectIds->merge($companyProjectIds)->unique();
+            $companyProjectIds = Project::whereIn('client_company_id', $user->clientCompanies()->pluck('id'))->pluck('id');
+            $projectIds = $projectIds->merge($companyProjectIds);
         }
+
+        $projectIds = $projectIds->unique();
 
         return Inertia::render('Dashboard/Index', [
             'projects' => Project::whereIn('id', $projectIds)

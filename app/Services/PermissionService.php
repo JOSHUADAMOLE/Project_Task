@@ -129,21 +129,37 @@ class PermissionService
         if (self::$projectsThatUserCanAccess !== null) {
             return self::$projectsThatUserCanAccess;
         }
+
         if ($user->hasRole('admin')) {
             return Project::all();
         }
+
+        // Direct projects assigned to user
         $projects = collect($user->projects->toArray());
+
+        // Projects through client companies
         $user->load('clientCompanies.projects');
+        $projects = $projects->merge(
+            $user->clientCompanies
+                ->map(fn ($company) => $company->projects->toArray())
+                ->collapse()
+        );
+
+        // ✅ Include projects assigned to user's team leader
+        $user->load('teams.users.projects'); // load team members' projects
+        foreach ($user->teams as $team) {
+            foreach ($team->users as $teamUser) {
+                // Only include if the teamUser is a team leader
+                if ($teamUser->hasRole('team leader')) {
+                    $projects = $projects->merge($teamUser->projects->toArray());
+                }
+            }
+        }
 
         return self::$projectsThatUserCanAccess = $projects
-            ->merge(
-                $user
-                    ->clientCompanies
-                    ->map(fn (ClientCompany $company) => $company->projects->toArray())
-                    ->collapse()
-            )
             ->unique('id')
             ->sortBy('name')
             ->values();
     }
+
 }

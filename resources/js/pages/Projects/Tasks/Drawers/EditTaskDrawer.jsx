@@ -1,267 +1,239 @@
+import { openConfirmModal } from '@/components/ConfirmModal';
 import Dropzone from '@/components/Dropzone';
 import RichTextEditor from '@/components/RichTextEditor';
 import useTaskDrawerStore from '@/hooks/store/useTaskDrawerStore';
-import useTasksStore from '@/hooks/store/useTasksStore';
-import useWebSockets from '@/hooks/useWebSockets';
-import { date } from '@/utils/datetime';
-import { hasRoles } from '@/utils/user';
+import useForm from '@/hooks/useForm';
 import { usePage } from '@inertiajs/react';
-import {
-  Breadcrumbs,
-  Checkbox,
-  Drawer,
-  Group,
-  MultiSelect,
+import { 
+  Button, 
+  Drawer, 
+  Flex, 
+  MultiSelect, 
   Select,
-  Text,
-  TextInput,
-  rem,
+  Text, 
+  TextInput, 
+  rem 
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
-import dayjs from 'dayjs';
-import { useEffect, useRef, useState } from 'react';
-import Comments from './Comments';
-import LabelsDropdown from './LabelsDropdown';
+import { useEffect, useState } from 'react';
 import classes from './css/TaskDrawer.module.css';
 
 export function EditTaskDrawer() {
-  const editorRef = useRef(null);
-  const { edit, openEditTask, closeEditTask } = useTaskDrawerStore();
-  const { initTaskWebSocket } = useWebSockets();
-  const { findTask, updateTaskProperty, complete, deleteAttachment, uploadAttachments } =
-    useTasksStore();
-  const {
-    usersWithAccessToProject,
-    taskGroups,
-    labels,
-    openedTask,
-    auth: { user },
-  } = usePage().props;
+  const { edit, closeEditTask } = useTaskDrawerStore();
+  const { assignableUsers, subscribers, taskGroups, project, authUser } = usePage().props;
 
-  useEffect(() => {
-    if (openedTask) setTimeout(() => openEditTask(openedTask), 50);
-  }, []);
+  const task = edit.task;
+  if (!task) return null;
 
-  const task = findTask(edit.task.id);
+  // Get roles
+  const roleNames = (authUser?.roles || []).map(r => r.name);
+  const isAdmin = roleNames.includes("Admin");
+  const isTeamLeader = roleNames.includes("Team Leader");
 
-  const [data, setData] = useState({
-    group_id: '',
-    assigned_to_user_id: '',
-    name: '',
-    description: '',
-    due_on: '',
-    labels: [],
-  });
+  // Task creator id (fallback if createdByUser is missing)
+  const taskCreatorId = task.createdByUser?.id ?? task.created_by_user_id;
 
-  const [errors, setErrors] = useState({});
+  // Check if user can edit
+  const canEditTask = isAdmin || (isTeamLeader && taskCreatorId === authUser.id);
 
-  useEffect(() => {
-    if (edit.opened) {
-      return initTaskWebSocket(task);
-    }
-  }, [edit.opened]);
+  // Debug logs
+  console.log('Auth user:', authUser);
+  console.log('Roles:', roleNames);
+  console.log('Task created by:', taskCreatorId ?? 'No creator assigned');
+  console.log('Can edit task:', canEditTask);
+
+
+  // --- Map users safely ---
+  const assignableUsersFromController = (assignableUsers || [])
+    .filter(u => u && u.id)
+    .map(u => ({ value: u.id.toString(), label: u.name || 'No name' }));
+
+  const subscribersFromController = (subscribers || [])
+    .filter(s => s && s.id)
+    .map(s => ({ value: s.id.toString(), label: s.name || 'No name' }));
+
+  // --- Form initial values ---
+  const initial = {
+    group_id: task?.group_id?.toString() || '',
+    subscribed_users: (task?.subscribed_users || []).map(u => u.id?.toString()).filter(Boolean),
+    assigned_to_user_id: task?.assigned_to_user_id?.toString() || '',
+    name: task?.name || '',
+    description: task?.description || '',
+    due_on: task?.due_on ? new Date(task.due_on) : null,
+    attachments: task?.attachments || [],
+  };
+
+  const updateRoute = canEditTask ? route('projects.tasks.update', [project.id, task.id]) : null;
+  const [form, submit, updateValue] = useForm('put', updateRoute, { ...initial });
+  const [comment, setComment] = useState('');
 
   useEffect(() => {
     if (edit.opened && task) {
-      setData({
-        group_id: task?.group_id || '',
-        assigned_to_user_id: task?.assigned_to_user_id || '',
-        name: task?.name || '',
-        description: task?.description || '',
-        due_on: task?.due_on ? dayjs(task?.due_on).toDate() : '',
-        subscribed_users: (task?.subscribed_users || []).map(i => i.id.toString()),
-        labels: (task?.labels || []).map(i => i.id),
-      });
-      setTimeout(() => {
-        editorRef.current?.setContent(task?.description || '');
-      }, 300);
+      updateValue({ ...initial });
     }
   }, [edit.opened, task]);
 
-  const validateField = (field, value) => {
-    const requiredFields = ['name', 'group_id', 'assigned_to_user_id', 'due_on'];
-    if (requiredFields.includes(field) && !value) {
-      return `${field.replaceAll('_', ' ')} is required`;
-    }
-    return null;
-  };
-
-  const updateValue = (field, value) => {
-    const error = validateField(field, value);
-    setErrors({ ...errors, [field]: error });
-    setData({ ...data, [field]: value });
-
-    if (error) return; // stop if validation fails
-
-    const dropdowns = ['labels', 'subscribed_users'];
-    const onBlurInputs = ['name', 'description'];
-
-    if (dropdowns.includes(field)) {
-      const options = {
-        labels: value.map(id => labels.find(i => i.id === id)),
-        subscribed_users: value.map(id =>
-          usersWithAccessToProject.find(i => i.id.toString() === id)
-        ),
-      };
-      updateTaskProperty(task, field, value, options[field]);
-    } else if (!onBlurInputs.includes(field)) {
-      updateTaskProperty(task, field, value);
+  // --- Drawer close with unsaved changes check ---
+  const closeDrawer = (force = false) => {
+    if (force || (JSON.stringify(form.data) === JSON.stringify(initial) && !form.processing)) {
+      closeEditTask();
+    } else {
+      openConfirmModal({
+        type: 'danger',
+        title: 'Discard changes?',
+        content: `All unsaved changes will be lost.`,
+        confirmLabel: 'Discard',
+        confirmProps: { color: 'red' },
+        onConfirm: () => closeEditTask(),
+      });
     }
   };
 
-  const onBlurUpdate = property => {
-    const error = validateField(property, data[property]);
-    setErrors({ ...errors, [property]: error });
-    if (!error) updateTaskProperty(task, property, data[property]);
+  const removeAttachment = (index) => {
+    const files = [...form.data.attachments];
+    files.splice(index, 1);
+    updateValue('attachments', files);
+  };
+
+  const submitComment = () => {
+    if (!comment.trim()) return;
+    window.Inertia.post(route('tasks.comments.store', task.id), { content: comment }, {
+      onSuccess: () => setComment(''),
+    });
   };
 
   return (
     <Drawer
       opened={edit.opened}
-      onClose={closeEditTask}
-      title={
-        <Group ml={25} my="sm" wrap="nowrap">
-          <Checkbox
-            size="md"
-            radius="xl"
-            color="green"
-            checked={task?.completed_at !== null}
-            onChange={e => complete(task, e.currentTarget.checked)}
-            className={can('complete task') ? classes.checkbox : classes.disabledCheckbox}
-          />
-          <Text
-            fz={rem(27)}
-            fw={600}
-            lh={1.2}
-            td={task?.completed_at !== null ? 'line-through' : null}
-          >
-            #{task?.number}: {data.name}
-          </Text>
-        </Group>
-      }
+      onClose={closeDrawer}
+      title={<Text fz={rem(28)} fw={600} ml={25} my="sm">Edit Task</Text>}
       position="right"
       size={1000}
       overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
-      transitionProps={{
-        transition: 'slide-left',
-        duration: 400,
-        timingFunction: 'ease',
-      }}
+      transitionProps={{ transition: 'slide-left', duration: 400, timingFunction: 'ease' }}
     >
-      {task ? (
-        <>
-          <Breadcrumbs
-            c="dark.3"
-            ml={24}
-            mb="xs"
-            separator="I"
-            separatorMargin="sm"
-            styles={{ separator: { opacity: 0.3 } }}
-          >
-            <Text size="xs">{task.project.name}</Text>
-            <Text size="xs">Task #{task.number}</Text>
-            <Text size="xs">
-              Created by {task.created_by_user.name} on {date(task.created_at)}
-            </Text>
-          </Breadcrumbs>
+      <form
+        onSubmit={(event) => {
+          if (!updateRoute) return;
+          submit(event, {
+            transform: (data) => ({ ...data, due_on: data.due_on ? data.due_on.toISOString() : null }),
+            onSuccess: () => closeDrawer(true),
+          });
+        }}
+        className={classes.inner}
+      >
+        <div className={classes.content}>
+          {/* Task Name */}
+          <TextInput
+            label="Task Name"
+            placeholder="Enter task name"
+            required
+            value={form.data.name}
+            onChange={(e) => updateValue('name', e.target.value)}
+            error={form.errors.name}
+            disabled={!canEditTask}
+          />
 
-          <form className={classes.inner}>
-            <div className={classes.content}>
-              <TextInput
-                label="Name"
-                placeholder="Task name"
-                required
-                value={data.name}
-                onChange={e => updateValue('name', e.target.value)}
-                onBlur={() => onBlurUpdate('name')}
-                error={errors.name}
-                readOnly={!can('edit task')}
-              />
+          {/* Task Description */}
+          <RichTextEditor
+            mt="xl"
+            placeholder="Task description"
+            height={200}
+            value={form.data.description}
+            onChange={(content) => updateValue('description', content)}
+            readOnly={!canEditTask}
+          />
 
+          {/* Attachments */}
+          <Dropzone
+            mt="md"
+            selected={form.data.attachments}
+            onChange={(files) => updateValue('attachments', files)}
+            remove={removeAttachment}
+            disabled={!canEditTask}
+          />
+
+          {/* Subscribers */}
+          <MultiSelect
+            label="Subscribers"
+            placeholder="Select subscribers"
+            searchable
+            mt="md"
+            value={form.data.subscribed_users}
+            onChange={(values) => updateValue('subscribed_users', values)}
+            data={subscribersFromController}
+            disabled={!canEditTask}
+          />
+
+          {/* Task Group */}
+          <Select
+            label="Task Group"
+            placeholder="Select task group"
+            required
+            mt="md"
+            value={form.data.group_id}
+            onChange={(value) => updateValue('group_id', value)}
+            data={(taskGroups || []).map(g => ({ value: g.id.toString(), label: g.name }))}
+            error={form.errors.group_id}
+            disabled={!canEditTask}
+          />
+
+          {/* Assignee */}
+          <Select
+            label="Assignees"
+            placeholder="Select assignee"
+            searchable
+            mt="md"
+            value={form.data.assigned_to_user_id}
+            onChange={(value) => updateValue('assigned_to_user_id', value)}
+            data={assignableUsersFromController}
+            disabled={!canEditTask}
+          />
+
+          {/* Due date */}
+          <DateInput
+            clearable
+            valueFormat="DD MMM YYYY"
+            minDate={new Date()}
+            mt="md"
+            label="Due date"
+            placeholder="Pick due date"
+            value={form.data.due_on}
+            onChange={(value) => updateValue('due_on', value)}
+            disabled={!canEditTask}
+          />
+
+          {/* Comment for members */}
+          {!canEditTask && (
+            <>
               <RichTextEditor
-                ref={editorRef}
                 mt="xl"
-                placeholder="Task description"
-                content={data.description}
-                height={260}
-                onChange={content => updateValue('description', content)}
-                onBlur={() => onBlurUpdate('description')}
-                readOnly={!can('edit task')}
+                placeholder="Add a comment for progress or updates"
+                height={150}
+                value={comment}
+                onChange={setComment}
               />
+              <Button mt="md" w={120} onClick={submitComment}>
+                Add Comment
+              </Button>
+            </>
+          )}
 
-              {can('edit task') && (
-                <Dropzone
-                  mt="xl"
-                  selected={task.attachments}
-                  onChange={files => uploadAttachments(task, files)}
-                  remove={index => deleteAttachment(task, index)}
-                />
-              )}
-
-              {can('view comments') && <Comments task={task} />}
-            </div>
-            
-            <div className={classes.sidebar}>
-              <Select
-                label="Task group"
-                placeholder="Select task group"
-                required
-                allowDeselect={false}
-                value={data.group_id?.toString()}
-                onChange={value => updateValue('group_id', value)}
-                error={errors.group_id}
-                data={taskGroups.map(i => ({
-                  value: i.id.toString(),
-                  label: i.name,
-                }))}
-                readOnly={!can('edit task')}
-              />
-
-              <Select
-                label="Assignee"
-                placeholder="Select assignee"
-                searchable
-                required
-                mt="md"
-                value={data.assigned_to_user_id?.toString()}
-                onChange={value => updateValue('assigned_to_user_id', value)}
-                error={errors.assigned_to_user_id}
-                data={usersWithAccessToProject.map(i => ({
-                  value: i.id.toString(),
-                  label: i.name,
-                }))}
-                readOnly={!can('edit task')}
-              />
-              <DateInput
-                clearable={false}
-                required
-                valueFormat="DD MMM YYYY"
-                minDate={new Date()}
-                mt="md"
-                label="Due date"
-                placeholder="Pick task due date"
-                value={data.due_on}
-                onChange={value => updateValue('due_on', value)}
-                error={errors.due_on}
-                readOnly={!can('edit task')}
-              />
-              <MultiSelect
-                label="Subscribers"
-                placeholder="Select users to subscribe"
-                mt="md"
-                value={data.subscribed_users || []}
-                onChange={value => updateValue('subscribed_users', value)}
-                data={usersWithAccessToProject.map(user => ({
-                  value: user.id?.toString() || '',
-                  label: user.name || 'Unnamed User',
-                }))}
-                readOnly={!can('edit task')}
-                searchable={false} // <-- disables search, placeholder disappears after selection
-              />
-            </div>
-          </form>
-        </>
-      ) : null}
+          <Flex justify="space-between" mt="xl">
+            <Button variant="transparent" w={100} disabled={form.processing} onClick={closeDrawer}>
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              w={120} 
+              loading={form.processing} 
+              disabled={!updateRoute}
+            >
+              Save Changes
+            </Button>
+          </Flex>
+        </div>
+      </form>
     </Drawer>
   );
 }

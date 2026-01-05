@@ -95,9 +95,28 @@ class User extends Authenticatable implements AuditableContract, CanResetPasswor
 
     public function hasProjectAccess(Project $project): bool
     {
-        $users = PermissionService::usersWithAccessToProject($project);
+        // Admin always has access
+        if ($this->hasRole('admin')) {
+            return true;
+        }
 
-        return $users->pluck('id')->contains($this->id);
+        // Direct project access
+        if ($project->users()->where('users.id', $this->id)->exists()) {
+            return true;
+        }
+
+        // Access through team leader → team members inherit access
+        $teamLeaderIds = $project->users()
+            ->whereHas('roles', fn($q) => $q->where('name', 'team leader'))
+            ->pluck('id');
+
+        return $this->teams()
+            ->whereIn('teams.id', function ($query) use ($teamLeaderIds) {
+                $query->select('team_id')
+                    ->from('team_user')
+                    ->whereIn('user_id', $teamLeaderIds);
+            })
+            ->exists();
     }
 
     public static function userDropdownValues($exclude = ['client']): array
@@ -125,16 +144,17 @@ class User extends Authenticatable implements AuditableContract, CanResetPasswor
 
     public function teamMembers()
     {
-        // Get all users in the same team(s) except the leader
+        // Get all users in the same teams as the current user, excluding themselves
         return $this->teams()
             ->with('users') // eager load users in each team
-            ->get()
-            ->pluck('users') // get the users collection from each team
-            ->flatten() // merge collections
-            ->unique('id') // remove duplicates if a user is in multiple teams
-            ->where('id', '!=', $this->id) // exclude the leader themselves
-            ->values(); // reset keys
+            ->get()         // collection of teams
+            ->pluck('users') // get users collection from each team
+            ->flatten()      // merge collections into one
+            ->unique('id')   // remove duplicate users
+            ->reject(fn($user) => $user->id === $this->id) // exclude self (leader)
+            ->values();      // reset keys
     }
+
 
 
 

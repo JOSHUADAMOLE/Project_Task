@@ -8,9 +8,26 @@ import { Avatar, Group, Text, Tooltip, rem, useComputedColorScheme } from "@mant
 import TaskActions from "../TaskActions";
 import classes from "./css/TaskCard.module.css";
 
-export default function TaskCard({ task, index }) {
+export default function TaskCard({ task, index, authUser }) {
   const { openEditTask } = useTaskDrawerStore();
   const computedColorScheme = useComputedColorScheme();
+
+  // Roles
+  const roleNames = (authUser?.roles || []).map(r => r.name);
+  const isAdmin = roleNames.includes("Admin");
+  const isTeamLeader = roleNames.includes("Team Leader");
+
+  // Permissions
+  const canEditTask =
+    isAdmin || (isTeamLeader && task.created_by_user_id === authUser.id);
+
+  const canViewTask =
+    isAdmin ||
+    isTeamLeader ||
+    task.assigned_to_user_id === authUser.id ||
+    task.created_by_user_id === authUser.id;
+
+  if (!canViewTask) return null; // Hide card if user can't view
 
   return (
     <Draggable draggableId={"task-" + task.id} index={index}>
@@ -22,13 +39,15 @@ export default function TaskCard({ task, index }) {
             task.completed_at !== null && classes.completed
           }`}
         >
-          <div {...(can("reorder task") && provided.dragHandleProps)}>
+          <div {...(canEditTask && provided.dragHandleProps)}>
             <Text
               className={classes.name}
               size="xs"
               fw={500}
               c={isOverdue(task) && task.completed_at === null ? "red.7" : ""}
-              onClick={() => openEditTask(task)}
+              onClick={() => {
+                if (canViewTask) openEditTask(task); // Only open drawer if user can view
+              }}
             >
               #{task.number + ": " + task.name}
             </Text>
@@ -64,7 +83,7 @@ export default function TaskCard({ task, index }) {
                 </Tooltip>
               )}
 
-              {(can("archive task") || can("restore task")) && (
+              {(canEditTask) && (
                 <TaskActions task={task} className={classes.actions} />
               )}
             </Group>

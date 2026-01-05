@@ -21,10 +21,22 @@ import classes from './css/TaskDrawer.module.css';
 export function CreateTaskDrawer() {
   const { create, closeCreateTask } = useTaskDrawerStore();
   const { assignableUsers, subscribers, taskGroups, project } = usePage().props;
-  const assignableUsersFromController = assignableUsers?.map(user => ({
-    value: user.id.toString(),
-    label: user.name,
-  }));
+
+  // ✅ Safe mapping for assignable users
+  const assignableUsersFromController = (assignableUsers || [])
+    .filter(u => u && u.id && u.name)
+    .map(u => ({
+      value: u.id.toString(),
+      label: u.name,
+    }));
+
+  // ✅ Safe mapping for subscribers
+  const subscribersFromController = (subscribers || [])
+    .filter(s => s && s.id && s.name)
+    .map(s => ({
+      value: s.id.toString(),
+      label: s.name,
+    }));
 
   const initial = {
     group_id: create.group_id ? create.group_id.toString() : '',
@@ -74,7 +86,7 @@ export function CreateTaskDrawer() {
     <Drawer
       opened={create.opened}
       onClose={closeDrawer}
-      title={<Text fz={rem(28)} fw={600} ml={25} my="sm">Add new task</Text>}
+      title={<Text fz={rem(28)} fw={600} ml={25} my="sm">Add New Task</Text>}
       position="right"
       size={1000}
       overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
@@ -119,7 +131,7 @@ export function CreateTaskDrawer() {
             mt="md"
             value={form.data.subscribed_users}
             onChange={(values) => updateValue('subscribed_users', values)}
-            data={subscribers}
+            data={subscribersFromController} // ✅ use safe mapped data
           />
 
           {/* Task Group */}
@@ -130,19 +142,22 @@ export function CreateTaskDrawer() {
             mt="md"
             value={form.data.group_id}
             onChange={(value) => updateValue('group_id', value)}
-            data={(taskGroups || []).map(g => ({ value: g.id.toString(), label: g.name }))}
+            data={(taskGroups || []).filter(g => g && g.id && g.name).map(g => ({
+              value: g.id.toString(),
+              label: g.name,
+            }))}
             error={form.errors.group_id}
           />
 
           {/* Assignees: team leader's members */}
           <Select
             label="Assignees"
-            placeholder="Select assignees"
+            placeholder="Select assignee"
             searchable
             mt="md"
             value={form.data.assigned_to_user_id}
             onChange={(value) => updateValue('assigned_to_user_id', value)}
-            data={assignableUsersFromController || []} // ✅ make sure this matches controller prop
+            data={assignableUsersFromController} // ✅ use safe mapped data
           />
 
           <DateInput

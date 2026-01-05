@@ -32,7 +32,16 @@ class ProjectController extends Controller
                             $query->whereIn('client_company_id', $user->clientCompanies()->pluck('client_company_id'));
                         } else {
                             // Show projects assigned to the user
-                            $query->whereHas('users', fn($q) => $q->where('id', $user->id));
+                            $query->where(function ($q) use ($user) {
+                                // Direct access
+                                $q->whereHas('users', fn ($uq) => $uq->where('users.id', $user->id));
+
+                                // Team member access (via team leader)
+                                $q->orWhereHas('users.teams.users', fn ($tq) =>
+                                    $tq->where('users.id', $user->id)
+                                );
+                            });
+
                         }
                     })
                     ->when($request->has('archived'), fn ($query) => $query->onlyArchived())

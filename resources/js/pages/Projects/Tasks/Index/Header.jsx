@@ -16,15 +16,20 @@ import {
 } from "@tabler/icons-react";
 
 export default function Header() {
-  const { project } = usePage().props;
+  const { project, authUser } = usePage().props;
 
   const { tasksView, setTasksView } = usePreferences();
-  const { openDrawer } = useTaskFiltersStore();
-  const search = (search) => reloadWithQuery({ search });
-
+  const { openDrawer, hasUrlParams } = useTaskFiltersStore();
   const { openCreateTask } = useTaskDrawerStore();
-  const { hasUrlParams } = useTaskFiltersStore();
+  const search = (search) => reloadWithQuery({ search });
+  
   const usingFilters = hasUrlParams(["archived"]);
+
+  // --- Role check ---
+  const roleNames = (authUser?.roles || []).map(r => r.name.toLowerCase());
+  const isAdmin = roleNames.includes("admin");
+  const isTeamLeader = roleNames.includes("team leader");
+  const canCreateTask = isAdmin || isTeamLeader; // Only admin or team leader can create tasks
 
   return (
     <Grid justify="space-between" align="end">
@@ -32,9 +37,14 @@ export default function Header() {
         <Group mb="lg">
           <Title order={1}>
             {project.name}
-            {project.archived_at && <Text size="2rem" fw={500} c="red.8" ml="md" span>(archived)</Text>}
+            {project.archived_at && (
+              <Text size="2rem" fw={500} c="red.8" ml="md" span>
+                (archived)
+              </Text>
+            )}
           </Title>
         </Group>
+
         <Group>
           <SearchInput placeholder="Search tasks" search={search} mr="md" />
 
@@ -56,6 +66,7 @@ export default function Header() {
           <ArchivedFilterButton />
         </Group>
       </Grid.Col>
+
       <Grid.Col span="content">
         <Group>
           <Group mr="sm" gap={10}>
@@ -81,7 +92,7 @@ export default function Header() {
             </ActionIcon.Group>
           </Group>
 
-          {can("create task") && (
+          {canCreateTask && (
             <Button
               leftSection={<IconPlus size={14} />}
               radius="xl"
