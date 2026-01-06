@@ -1,6 +1,7 @@
 import { openConfirmModal } from '@/components/ConfirmModal';
 import Dropzone from '@/components/Dropzone';
 import RichTextEditor from '@/components/RichTextEditor';
+import Comments from './Comments'; // use the old comment component
 import useTaskDrawerStore from '@/hooks/store/useTaskDrawerStore';
 import useForm from '@/hooks/useForm';
 import { Inertia } from '@inertiajs/inertia';
@@ -26,23 +27,13 @@ export function EditTaskDrawer() {
   const task = edit.task;
   if (!task) return null;
 
-  // Get roles
+  // Determine roles
   const roleNames = (authUser?.roles || []).map(r => r.name);
   const isAdmin = roleNames.includes("Admin");
   const isTeamLeader = roleNames.includes("Team Leader");
 
-  // Task creator id (fallback if createdByUser is missing)
   const taskCreatorId = task.createdByUser?.id ?? task.created_by_user_id;
-
-  // Check if user can edit
   const canEditTask = isAdmin || (isTeamLeader && taskCreatorId === authUser.id);
-
-  // Debug logs
-  //console.log('Auth user:', authUser);
-  //console.log('Roles:', roleNames);
-  //console.log('Task created by:', taskCreatorId ?? 'No creator assigned');
-  //console.log('Can edit task:', canEditTask);
-
 
   // --- Map users safely ---
   const assignableUsersFromController = (assignableUsers || [])
@@ -98,7 +89,7 @@ export function EditTaskDrawer() {
 
   const submitComment = () => {
     if (!comment.trim()) return;
-    window.Inertia.post(route('tasks.comments.store', task.id), { content: comment }, {
+    window.Inertia.post(route('projects.tasks.comments.store', [project.id, task.id]), { content: comment }, {
       onSuccess: () => setComment(''),
     });
   };
@@ -154,18 +145,6 @@ export function EditTaskDrawer() {
             disabled={!canEditTask}
           />
 
-          {/* Subscribers */}
-          <MultiSelect
-            label="Subscribers"
-            placeholder="Select subscribers"
-            searchable
-            mt="md"
-            value={form.data.subscribed_users}
-            onChange={(values) => updateValue('subscribed_users', values)}
-            data={subscribersFromController}
-            disabled={!canEditTask}
-          />
-
           {/* Task Group */}
           <Select
             label="Task Group"
@@ -181,7 +160,7 @@ export function EditTaskDrawer() {
 
           {/* Assignee */}
           <Select
-            label="Assignees"
+            label="Assignee"
             placeholder="Select assignee"
             searchable
             mt="md"
@@ -204,35 +183,8 @@ export function EditTaskDrawer() {
             disabled={!canEditTask}
           />
 
-          {/* Comment for all users */}
-          <>
-            <RichTextEditor
-              mt="xl"
-              placeholder="Add a comment for progress or updates"
-              height={150}
-              value={comment}
-              onChange={setComment}
-            />
-            <Button
-              mt="md"
-              w={130}
-              disabled={!comment.trim()}
-              onClick={() => {
-                if (!comment.trim()) return;
-
-                Inertia.post(
-                  route('projects.tasks.comments.store', [project.id, task.id]),
-                  { content: comment },
-                  {
-                    onSuccess: () => setComment(''), // clears editor after success
-                  }
-                );
-              }}
-            >
-              Add Comment
-            </Button>
-          </>
-
+          {/* --- Comments Section --- */}
+          {task && <Comments task={task} />}
 
           <Flex justify="space-between" mt="xl">
             <Button variant="transparent" w={100} disabled={form.processing} onClick={closeDrawer}>

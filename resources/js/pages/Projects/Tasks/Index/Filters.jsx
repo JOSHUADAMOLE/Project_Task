@@ -9,17 +9,19 @@ import {
   Text,
   ColorSwatch,
   ScrollArea,
-  rem,
 } from "@mantine/core";
 
 export default function Filters() {
-  // Get props from Inertia
-  const { usersWithAccessToProject = [], labels = [] } = usePage().props;
+  const {
+    usersWithAccessToProject = [],
+    labels = [],
+    authUser,
+  } = usePage().props;
 
-  // Task groups from store
+  const isAdmin = authUser?.roles?.some((r) => r.name === "Admin");
+
   const { groups = [] } = useTaskGroupsStore();
 
-  // Filters from store
   const {
     filters,
     toggleArrayFilter,
@@ -30,25 +32,23 @@ export default function Filters() {
   return (
     <Group gap={12}>
       {/* =======================
-           TASK GROUPS DROPDOWN
-         ======================= */}
+          TASK GROUPS
+      ======================= */}
       <Menu width={220} position="bottom-start">
         <Menu.Target>
-          <Button variant="light" size="sm">
-            Task Groups
-          </Button>
+          <Button variant="light" size="sm">Task Groups</Button>
         </Menu.Target>
 
         <Menu.Dropdown>
           <ScrollArea.Autosize mah={250}>
-            {(groups || []).map((g) => (
+            {groups.map((g) => (
               <Menu.Item
                 key={g.id}
                 onClick={() => toggleArrayFilter("groups", g.id)}
               >
                 <Group justify="space-between">
                   <Text>{g.name}</Text>
-                  {filters.groups.includes(g.id) && <Text fw={700} c="blue">✓</Text>}
+                  {filters.groups.includes(g.id) && <Text fw={700}>✓</Text>}
                 </Group>
               </Menu.Item>
             ))}
@@ -57,25 +57,34 @@ export default function Filters() {
       </Menu>
 
       {/* =======================
-           ASSIGNEE DROPDOWN
-         ======================= */}
+          ASSIGNEE (FIXED)
+      ======================= */}
       <Menu width={220} position="bottom-start">
         <Menu.Target>
-          <Button variant="light" size="sm">
-            Assignee
-          </Button>
+          <Button variant="light" size="sm">Assignee</Button>
         </Menu.Target>
 
         <Menu.Dropdown>
           <ScrollArea.Autosize mah={250}>
-            {(usersWithAccessToProject || []).map((user) => (
+            {/* 🔥 UNASSIGNED TASKS */}
+            <Menu.Item
+              onClick={() => toggleArrayFilter("assignees", null)}
+            >
+              <Group justify="space-between">
+                <Text>Unassigned</Text>
+                {filters.assignees.includes(null) && <Text fw={700}>✓</Text>}
+              </Group>
+            </Menu.Item>
+
+            {/* USERS */}
+            {usersWithAccessToProject.map((user) => (
               <Menu.Item
                 key={user.id}
                 onClick={() => toggleArrayFilter("assignees", user.id)}
               >
                 <Group justify="space-between">
                   <Text>{user.name}</Text>
-                  {filters.assignees.includes(user.id) && <Text fw={700} c="blue">✓</Text>}
+                  {filters.assignees.includes(user.id) && <Text fw={700}>✓</Text>}
                 </Group>
               </Menu.Item>
             ))}
@@ -84,88 +93,58 @@ export default function Filters() {
       </Menu>
 
       {/* =======================
-           DUE DATE DROPDOWN
-         ======================= */}
+          DUE DATE
+      ======================= */}
       <Menu width={220} position="bottom-start">
         <Menu.Target>
-          <Button variant="light" size="sm">
-            Due Date
-          </Button>
+          <Button variant="light" size="sm">Due Date</Button>
         </Menu.Target>
 
         <Menu.Dropdown>
-          <Menu.Item
-            onClick={() => toggleObjectFilter("due_date", "not_set")}
-            rightSection={filters.due_date?.not_set ? "✓" : ""}
-          >
-            Not set
-          </Menu.Item>
-          <Menu.Item
-            onClick={() => toggleObjectFilter("due_date", "overdue")}
-            rightSection={filters.due_date?.overdue ? "✓" : ""}
-          >
-            Overdue
-          </Menu.Item>
-          <Menu.Item
-            onClick={() => toggleObjectFilter("due_date", "today")}
-            rightSection={filters.due_date?.today ? "✓" : ""}
-          >
-            Today
-          </Menu.Item>
-          <Menu.Item
-            onClick={() => toggleObjectFilter("due_date", "week")}
-            rightSection={filters.due_date?.week ? "✓" : ""}
-          >
-            This week
-          </Menu.Item>
+          {["not_set", "overdue", "today", "week"].map((key) => (
+            <Menu.Item
+              key={key}
+              onClick={() => toggleObjectFilter("due_date", key)}
+              rightSection={filters.due_date?.[key] ? "✓" : ""}
+            >
+              {key.replace("_", " ").toUpperCase()}
+            </Menu.Item>
+          ))}
         </Menu.Dropdown>
       </Menu>
 
       {/* =======================
-           STATUS DROPDOWN
-         ======================= */}
+          STATUS
+      ======================= */}
       <Menu width={220} position="bottom-start">
         <Menu.Target>
-          <Button variant="light" size="sm">
-            Status
-          </Button>
+          <Button variant="light" size="sm">Status</Button>
         </Menu.Target>
 
         <Menu.Dropdown>
-          <Menu.Item
-            onClick={() => toggleValueFilter("status", "todo")}
-            rightSection={filters.status === "todo" ? "✓" : ""}
-          >
-            Todo
-          </Menu.Item>
-          <Menu.Item
-            onClick={() => toggleValueFilter("status", "in_progress")}
-            rightSection={filters.status === "in_progress" ? "✓" : ""}
-          >
-            In Progress
-          </Menu.Item>
-          <Menu.Item
-            onClick={() => toggleValueFilter("status", "completed")}
-            rightSection={filters.status === "completed" ? "✓" : ""}
-          >
-            Completed
-          </Menu.Item>
+          {["todo", "in_progress", "completed"].map((status) => (
+            <Menu.Item
+              key={status}
+              onClick={() => toggleValueFilter("status", status)}
+              rightSection={filters.status === status ? "✓" : ""}
+            >
+              {status.replace("_", " ").toUpperCase()}
+            </Menu.Item>
+          ))}
         </Menu.Dropdown>
       </Menu>
 
       {/* =======================
-           LABELS DROPDOWN
-         ======================= */}
+          LABELS
+      ======================= */}
       <Menu width={220} position="bottom-start">
         <Menu.Target>
-          <Button variant="light" size="sm">
-            Labels
-          </Button>
+          <Button variant="light" size="sm">Labels</Button>
         </Menu.Target>
 
         <Menu.Dropdown>
           <ScrollArea.Autosize mah={250}>
-            {(labels || []).map((label) => (
+            {labels.map((label) => (
               <Menu.Item
                 key={label.id}
                 onClick={() => toggleArrayFilter("labels", label.id)}
@@ -175,7 +154,7 @@ export default function Filters() {
                     <ColorSwatch size={14} color={label.color} />
                     <Text>{label.name}</Text>
                   </Group>
-                  {filters.labels.includes(label.id) && <Text fw={700} c="blue">✓</Text>}
+                  {filters.labels.includes(label.id) && <Text fw={700}>✓</Text>}
                 </Group>
               </Menu.Item>
             ))}

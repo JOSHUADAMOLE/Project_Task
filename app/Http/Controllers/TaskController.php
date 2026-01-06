@@ -24,14 +24,14 @@ class TaskController extends Controller
 {
     public function index(Request $request, Project $project, ?Task $task = null): Response
     {
-        $this->authorize('viewAny', [Task::class, $project]);
-
         $user = $request->user();
+
+        $this->authorize('viewAny', [Task::class, $project]);
 
         // Task groups
         $groups = $project->taskGroups()->get();
 
-        // Assignable users (team leader only)
+        // Assignable users (Team Leader only)
         $assignableUsers = collect();
         if ($user->hasRole('Team Leader')) {
             $assignableUsers = $user->teamMembers()->map(fn ($member) => [
@@ -40,7 +40,7 @@ class TaskController extends Controller
             ]);
         }
 
-        // Subscribers
+        // Subscribers (Admins & Clients)
         $subscribers = PermissionService::usersWithAccessToProject($project)
             ->filter(function ($u) {
                 $role = is_array($u) ? ($u['role'] ?? null) : ($u->role ?? null);
@@ -54,30 +54,69 @@ class TaskController extends Controller
             })
             ->values();
 
+        // -----------------------------
         // Grouped tasks
-        $groupedTasks = $project
-            ->taskGroups()
-            ->with(['tasks' => function ($q) use ($request, $user) {
-                $q->withDefault()
-                ->when(!$request->has('status'), fn ($q) =>
-                    $q->whereNull('completed_at')
-                )
-                ->when(
-                    !$user->hasAnyRole(['Admin', 'Team Leader']),
-                    fn ($q) => $q->where('assigned_to_user_id', $user->id)
-                );
-            }])
-            ->get()
-            ->mapWithKeys(fn ($group) => [$group->id => $group->tasks]);
+        // -----------------------------
+        $groupedTasks = $groups->mapWithKeys(function ($group) use ($user, $request) {
 
+            $tasksQuery = $group->tasks()
+                ->with(['labels', 'createdByUser', 'assignedToUser']);
 
-        // Opened task
-        $openedTask = null;
-        if ($task) {
-            $openedTask = $task
-                ->load($task->defaultWith)
-                ->load(['createdByUser:id,name']);
+            // Hide completed tasks unless status is provided (Admin INCLUDED by default)
+            if (!$request->has('status')) {
+                $tasksQuery->whereNull('completed_at');
+            }
+
+            // ROLE FILTERS
+            if ($user->hasRole('admin')) {
+                // Admin sees everything
+            } elseif ($user->hasRole('Team Leader')) {
+                $teamMemberIds = $user->teamMembers()->pluck('id')->toArray();
+                $tasksQuery->where(function ($q) use ($user, $teamMemberIds) {
+                    $q->where('created_by_user_id', $user->id)
+                    ->orWhereIn('assigned_to_user_id', $teamMemberIds);
+                });
+            } else {
+                $tasksQuery->where('assigned_to_user_id', $user->id);
+            }
+
+            return [$group->id => $tasksQuery->get()];
+        });
+
+        // -----------------------------
+        // Ungrouped tasks
+        // -----------------------------
+        $ungroupedTasksQuery = $project->tasks()
+            ->whereNull('group_id')
+            ->with(['labels', 'createdByUser', 'assignedToUser']);
+
+        if (!$request->has('status')) {
+            $ungroupedTasksQuery->whereNull('completed_at');
         }
+
+        // ROLE FILTERS (FIXED)
+        if ($user->hasRole('admin')) {
+            // Admin sees all ungrouped tasks
+        } elseif ($user->hasRole('Team Leader')) {
+            $teamMemberIds = $user->teamMembers()->pluck('id')->toArray();
+            $ungroupedTasksQuery->where(function ($q) use ($user, $teamMemberIds) {
+                $q->where('created_by_user_id', $user->id)
+                ->orWhereIn('assigned_to_user_id', $teamMemberIds);
+            });
+        } else {
+            $ungroupedTasksQuery->where('assigned_to_user_id', $user->id);
+        }
+
+        if ($ungroupedTasksQuery->exists()) {
+            $groupedTasks[0] = $ungroupedTasksQuery->get();
+        }
+
+        // -----------------------------
+        // Opened task
+        // -----------------------------
+        $openedTask = $task
+            ? $task->load($task->defaultWith)->load(['createdByUser:id,name'])
+            : null;
 
         return Inertia::render('Projects/Tasks/Index', [
             'project' => $project,
@@ -86,10 +125,12 @@ class TaskController extends Controller
             'assignableUsers' => $assignableUsers,
             'subscribers' => $subscribers,
             'openedTask' => $openedTask,
-            'authUser' => $request->user()->load('roles'),
+            'authUser' => $user->load('roles'),
             'currency' => null,
         ]);
     }
+
+
 
     public function store(StoreTaskRequest $request, Project $project): RedirectResponse
     {

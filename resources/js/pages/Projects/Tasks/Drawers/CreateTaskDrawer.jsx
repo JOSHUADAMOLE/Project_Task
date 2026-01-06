@@ -123,17 +123,6 @@ export function CreateTaskDrawer() {
             remove={removeAttachment}
           />
 
-          {/* Subscribers: admins and clients */}
-          <MultiSelect
-            label="Subscribers"
-            placeholder="Select subscribers"
-            searchable
-            mt="md"
-            value={form.data.subscribed_users}
-            onChange={(values) => updateValue('subscribed_users', values)}
-            data={subscribersFromController} // ✅ use safe mapped data
-          />
-
           {/* Task Group */}
           <Select
             label="Task Group"
@@ -159,7 +148,7 @@ export function CreateTaskDrawer() {
             onChange={(value) => updateValue('assigned_to_user_id', value)}
             data={assignableUsersFromController}
           />
-          
+
           {/* Due Date */}
           <DateInput
             clearable
