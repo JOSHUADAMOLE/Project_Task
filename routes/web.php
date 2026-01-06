@@ -58,9 +58,6 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::post('{project}/tasks/reorder', [TaskController::class, 'reorder'])->name('tasks.reorder');
         Route::post('{project}/tasks/move', [TaskController::class, 'move'])->name('tasks.move');
 
-
-
-
         // ATTACHMENTS
         Route::group(['prefix' => '{project}/tasks/{task}', 'as' => 'tasks.'], function () {
             Route::post('attachments/upload', [AttachmentController::class, 'store'])->name('attachments.upload');
@@ -76,7 +73,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         })->scopeBindings();
 
         // COMMENTS
-        Route::group(['prefix' => '{project}/tasks/{task}', 'as' => 'tasks.'], function () {
+        Route::group(['prefix' => '/projects/{project}/tasks/{task}/comment', 'as' => 'tasks.'], function () {
             Route::get('comment', [CommentController::class, 'index'])->name('comments');
             Route::post('comment', [CommentController::class, 'store'])->name('comments.store');
         })->scopeBindings();

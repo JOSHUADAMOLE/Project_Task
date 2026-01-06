@@ -24,7 +24,7 @@ class StoreTaskRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'group_id' => ['required', 'exists:task_groups,id'],
-            'assigned_to_user_id' => ['nullable', 'exists:users,id'],
+            'assigned_to_user_id' => ['nullable', 'exists:users,id'], // ✅ single assignee
             'description' => ['nullable', 'string'],
             'due_on' => ['nullable', 'date'],
             'subscribed_users' => ['array'],

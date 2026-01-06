@@ -20,46 +20,53 @@ class CreateTask
     {
         return DB::transaction(function () use ($project, $data) {
 
-            // Create task
+            // -----------------------------
+            // Create the task
+            // -----------------------------
             $task = $project->tasks()->create([
                 'group_id' => $data['group_id'],
                 'created_by_user_id' => auth()->id(),
                 'name' => $data['name'],
+                'assigned_to_user_id' => $data['assigned_to_user_id'] ?? null,
                 'number' => $project->tasks()->withArchived()->count() + 1,
                 'description' => $data['description'] ?? null,
                 'due_on' => $data['due_on'] ?? null,
                 'completed_at' => null,
             ]);
 
-            // Assign users
+            // -----------------------------
+            // Sync single assignee to pivot table
+            // -----------------------------
             if (!empty($data['assigned_to_user_id'])) {
-                $assignedIds = array_map(
-                    'intval',
-                    (array) $data['assigned_to_user_id']
-                );
-
-                $task->assignedUsers()->sync($assignedIds);
+                $task->assignedUsers()->sync([(int) $data['assigned_to_user_id']]);
             }
 
-
+            // -----------------------------
             // Attach subscribers
+            // -----------------------------
             if (!empty($data['subscribed_users'])) {
                 $subscriberIds = array_map('intval', $data['subscribed_users']);
                 $task->subscribedUsers()->sync($subscriberIds);
             }
 
+            // -----------------------------
             // Attach labels
+            // -----------------------------
             if (!empty($data['labels'])) {
                 $labelIds = array_map('intval', $data['labels']);
                 $task->labels()->sync($labelIds);
             }
 
+            // -----------------------------
             // Handle attachments
+            // -----------------------------
             if (!empty($data['attachments'])) {
                 $this->uploadAttachments($task, $data['attachments'], false);
             }
 
+            // -----------------------------
             // Trigger event
+            // -----------------------------
             TaskCreated::dispatch($task);
 
             return $task;

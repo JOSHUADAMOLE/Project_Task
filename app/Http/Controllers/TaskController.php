@@ -65,12 +65,19 @@ class TaskController extends Controller
         // -----------------------------
         $groupedTasks = $project
             ->taskGroups()
-            ->with(['tasks' => function ($q) use ($request) {
+            ->with(['tasks' => function ($q) use ($request, $user) {
                 $q->withDefault()
-                    ->when(!$request->has('status'), fn($q) => $q->whereNull('completed_at'));
+                ->when(!$request->has('status'), fn ($q) =>
+                    $q->whereNull('completed_at')
+                )
+                ->when(
+                    !$user->hasAnyRole(['Admin', 'Team Leader']),
+                    fn ($q) => $q->where('assigned_to_user_id', $user->id)
+                );
             }])
             ->get()
-            ->mapWithKeys(fn($group) => [$group->id => $group->tasks]);
+            ->mapWithKeys(fn ($group) => [$group->id => $group->tasks]);
+
 
         // -----------------------------
         // Opened task for editing
@@ -107,12 +114,18 @@ class TaskController extends Controller
             ->success('Task added', 'A new task was successfully added.');
     }
 
-    public function update(UpdateTaskRequest $request, Project $project, Task $task): JsonResponse
-    {
+    public function update(
+        UpdateTaskRequest $request,
+        Project $project,
+        Task $task
+    ): RedirectResponse {
         $this->authorize('update', [$task, $project]);
+
         (new UpdateTask)->update($task, $request->validated());
 
-        return response()->json();
+        return redirect()
+            ->back()
+            ->with('success', 'Task updated successfully.');
     }
 
     public function reorder(Request $request, Project $project): JsonResponse

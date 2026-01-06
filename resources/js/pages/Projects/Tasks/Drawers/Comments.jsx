@@ -25,7 +25,7 @@ export default function Comments({ task }) {
 
   useEffect(() => {
     fetchComments(task, () => setLoading(false));
-  }, []);
+  }, [task]);
 
   return (
     <Box mb="xl">
@@ -37,6 +37,8 @@ export default function Comments({ task }) {
           </Text>
         )}
       </Title>
+
+      {/* Comment input for all users */}
       <RichTextEditor
         ref={editorRef}
         mt="md"
@@ -49,10 +51,10 @@ export default function Comments({ task }) {
         <Button
           variant="filled"
           mt="md"
-          disabled={comment.length <= 7}
+          disabled={!comment.trim()}
           onClick={() => saveComment(task, comment, () => editorRef.current.setContent(""))}
         >
-          Add comment
+          Add Comment
         </Button>
       </Flex>
 

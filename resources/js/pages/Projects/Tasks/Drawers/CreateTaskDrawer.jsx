@@ -151,15 +151,16 @@ export function CreateTaskDrawer() {
 
           {/* Assignees: team leader's members */}
           <Select
-            label="Assignees"
+            label="Assignee"
             placeholder="Select assignee"
             searchable
             mt="md"
             value={form.data.assigned_to_user_id}
             onChange={(value) => updateValue('assigned_to_user_id', value)}
-            data={assignableUsersFromController} // ✅ use safe mapped data
+            data={assignableUsersFromController}
           />
-
+          
+          {/* Due Date */}
           <DateInput
             clearable
             valueFormat="DD MMM YYYY"

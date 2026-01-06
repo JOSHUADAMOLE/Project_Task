@@ -18,14 +18,17 @@ export default function TaskCard({ task, index, authUser }) {
   const isTeamLeader = roleNames.includes("Team Leader");
 
   // Permissions
+  const authUserId = authUser?.id;
+
   const canEditTask =
-    isAdmin || (isTeamLeader && task.created_by_user_id === authUser.id);
+    isAdmin || (isTeamLeader && task.created_by_user_id === authUserId);
 
   const canViewTask =
     isAdmin ||
     isTeamLeader ||
-    task.assigned_to_user_id === authUser.id ||
-    task.created_by_user_id === authUser.id;
+    task.assigned_to_user_id === authUserId ||
+    task.created_by_user_id === authUserId;
+
 
   if (!canViewTask) return null; // Hide card if user can't view
 

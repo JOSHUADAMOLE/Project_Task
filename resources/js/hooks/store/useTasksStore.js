@@ -15,6 +15,50 @@ const useTasksStore = create((set, get) => ({
 
   tasks: {},
   setTasks: (tasks) => set(() => ({ tasks: { ...tasks } })),
+
+  // ========================
+  // COMMENTS FOR TASKS
+  // ========================
+  comments: [], // store all comments for current task
+  setComments: (comments) => set({ comments }),
+
+  fetchComments: async (task, callback) => {
+    try {
+      const res = await axios.get(
+        route("projects.tasks.comments", [task.project_id, task.id])
+      );
+      
+      // if backend returns { comments: [...] }, use res.data.comments
+      const commentsArray = res.data.comments || res.data;
+
+      set({ comments: commentsArray }); // set all comments from backend
+      if (callback) callback();
+    } catch (e) {
+      console.error(e);
+      alert("Failed to fetch comments");
+    }
+    console.log("Fetched comments:", res.data);
+
+  },
+
+
+  saveComment: async (task, content, callback) => {
+    if (!content.trim()) return;
+    try {
+      const res = await axios.post(
+        route("projects.tasks.comments.store", [task.project_id, task.id]),
+        { content }
+      );
+      // immediately add new comment to state
+      set((state) => ({ comments: [...state.comments, res.data.comment] }));
+      if (callback) callback();
+    } catch (e) {
+      console.error(e);
+      alert("Failed to save comment");
+    }
+  },
+
+  // ========================
   addTask: (task) => {
     return set(produce(state => {
       const index = state.tasks[task.group_id].findIndex((i) => i.id === task.id);
@@ -27,21 +71,17 @@ const useTasksStore = create((set, get) => ({
   findTask: (id) => {
     for (const groupId in get().tasks) {
       const task = get().tasks[groupId].find((i) => i.id === id);
-
-      if (task) {
-        return task;
-      }
+      if (task) return task;
     }
     return null;
   },
   updateTaskProperty: async (task, property, value, options = null) => {
     try {
-      await axios
-        .put(
-          route("projects.tasks.update", [task.project_id, task.id]),
-          { [property]: value },
-          { progress: false },
-        );
+      await axios.put(
+        route("projects.tasks.update", [task.project_id, task.id]),
+        { [property]: value },
+        { progress: false },
+      );
 
       return set(produce(state => {
         const index = state.tasks[task.group_id].findIndex((i) => i.id === task.id);
@@ -66,8 +106,7 @@ const useTasksStore = create((set, get) => ({
     const newState = checked ? true : null;
     const index = get().tasks[task.group_id].findIndex((i) => i.id === task.id);
 
-    axios
-      .post(route("projects.tasks.complete", [task.project_id, task.id]), { completed: checked })
+    axios.post(route("projects.tasks.complete", [task.project_id, task.id]), { completed: checked })
       .catch(() => alert("Failed to save task completed action"));
 
     return set(produce(state => {
@@ -86,8 +125,7 @@ const useTasksStore = create((set, get) => ({
       to_index: destination.index,
     };
 
-    axios
-      .post(route("projects.tasks.reorder", [route().params.project]), data, { progress: false })
+    axios.post(route("projects.tasks.reorder", [route().params.project]), data, { progress: false })
       .catch(() => alert("Failed to save task reorder action"));
 
     return set(produce(state => { state.tasks[sourceGroupId] = result }));
@@ -106,8 +144,7 @@ const useTasksStore = create((set, get) => ({
       to_index: destination.index,
     };
 
-    axios
-      .post(route("projects.tasks.move", [route().params.project]), data, { progress: false })
+    axios.post(route("projects.tasks.move", [route().params.project]), data, { progress: false })
       .catch(() => alert("Failed to save task move action"));
 
     return set(produce(state => {

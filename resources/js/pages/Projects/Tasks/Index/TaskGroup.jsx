@@ -6,7 +6,7 @@ import Task from "./Task";
 import TaskGroupActions from "./TaskGroupActions";
 import classes from "./css/TaskGroup.module.css";
 
-export default function TaskGroup({ group, tasks, ...props }) {
+export default function TaskGroup({ group, tasks, authUser, ...props }) {
   const { openCreateTask } = useTaskDrawerStore();
 
   return (

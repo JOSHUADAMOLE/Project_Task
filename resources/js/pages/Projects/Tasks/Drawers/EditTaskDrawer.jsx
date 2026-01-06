@@ -3,6 +3,7 @@ import Dropzone from '@/components/Dropzone';
 import RichTextEditor from '@/components/RichTextEditor';
 import useTaskDrawerStore from '@/hooks/store/useTaskDrawerStore';
 import useForm from '@/hooks/useForm';
+import { Inertia } from '@inertiajs/inertia';
 import { usePage } from '@inertiajs/react';
 import { 
   Button, 
@@ -37,10 +38,10 @@ export function EditTaskDrawer() {
   const canEditTask = isAdmin || (isTeamLeader && taskCreatorId === authUser.id);
 
   // Debug logs
-  console.log('Auth user:', authUser);
-  console.log('Roles:', roleNames);
-  console.log('Task created by:', taskCreatorId ?? 'No creator assigned');
-  console.log('Can edit task:', canEditTask);
+  //console.log('Auth user:', authUser);
+  //console.log('Roles:', roleNames);
+  //console.log('Task created by:', taskCreatorId ?? 'No creator assigned');
+  //console.log('Can edit task:', canEditTask);
 
 
   // --- Map users safely ---
@@ -203,21 +204,35 @@ export function EditTaskDrawer() {
             disabled={!canEditTask}
           />
 
-          {/* Comment for members */}
-          {!canEditTask && (
-            <>
-              <RichTextEditor
-                mt="xl"
-                placeholder="Add a comment for progress or updates"
-                height={150}
-                value={comment}
-                onChange={setComment}
-              />
-              <Button mt="md" w={120} onClick={submitComment}>
-                Add Comment
-              </Button>
-            </>
-          )}
+          {/* Comment for all users */}
+          <>
+            <RichTextEditor
+              mt="xl"
+              placeholder="Add a comment for progress or updates"
+              height={150}
+              value={comment}
+              onChange={setComment}
+            />
+            <Button
+              mt="md"
+              w={130}
+              disabled={!comment.trim()}
+              onClick={() => {
+                if (!comment.trim()) return;
+
+                Inertia.post(
+                  route('projects.tasks.comments.store', [project.id, task.id]),
+                  { content: comment },
+                  {
+                    onSuccess: () => setComment(''), // clears editor after success
+                  }
+                );
+              }}
+            >
+              Add Comment
+            </Button>
+          </>
+
 
           <Flex justify="space-between" mt="xl">
             <Button variant="transparent" w={100} disabled={form.processing} onClick={closeDrawer}>
