@@ -207,19 +207,35 @@ class ReportController extends Controller
             ];
         });
 
-        $individualPerformance = User::with('tasks')->get()->map(function ($user) {
-            $assigned = $user->tasks->count();
-            $completed = $user->tasks->whereNotNull('completed_at')->count();
-            $rate = $assigned > 0 ? round(($completed / $assigned) * 100, 2) : 0;
+        // -----------------------------
+        // INDIVIDUAL PERFORMANCE
+        // -----------------------------
+        $individualPerformance = User::with(['tasks', 'teams'])
+            ->where(function($q) {
+                // Users who are Team Leaders
+                $q->whereHas('roles', fn($r) => $r->where('name', 'Team Leader'))
+                // OR users who belong to a team (team members)
+                ->orWhereHas('teams');
+            })
+            ->get()
+            ->map(function ($user) {
+                $assigned = $user->tasks->count();
+                $completed = $user->tasks->whereNotNull('completed_at')->count();
 
-            return [
-                'name' => $user->name,
-                'assigned_tasks' => $assigned,
-                'completed_tasks' => $completed,
-                'completion_rate' => $rate,
-                'status' => $this->performanceLabel($rate),
-            ];
-        })->sortByDesc('completion_rate')->values();
+                $completionRate = $assigned > 0 ? round(($completed / $assigned) * 100, 2) : 0;
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'assigned_tasks' => $assigned,
+                    'completed_tasks' => $completed,
+                    'completion_rate' => $completionRate,
+                    'status' => $this->performanceLabel($completionRate),
+                ];
+            })
+            ->sortByDesc('completion_rate')
+            ->values();
+
 
         return Inertia::render('Reports/WorkStatistics', [
             'statistics' => [
@@ -233,6 +249,9 @@ class ReportController extends Controller
         ]);
     }
 
+    /**
+     * Performance label
+     */
     private function performanceLabel(float $rate): string
     {
         if ($rate >= 80) return 'Good';
