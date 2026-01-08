@@ -212,9 +212,8 @@ class ReportController extends Controller
         // -----------------------------
         $individualPerformance = User::with(['tasks', 'teams'])
             ->where(function($q) {
-                // Users who are Team Leaders
+                // Include Team Leaders OR users who belong to a team (members)
                 $q->whereHas('roles', fn($r) => $r->where('name', 'Team Leader'))
-                // OR users who belong to a team (team members)
                 ->orWhereHas('teams');
             })
             ->get()
@@ -231,11 +230,12 @@ class ReportController extends Controller
                     'completed_tasks' => $completed,
                     'completion_rate' => $completionRate,
                     'status' => $this->performanceLabel($completionRate),
+                    // Collect all team names for hover tooltip
+                    'teams' => $user->teams->pluck('name')->join(', '),
                 ];
             })
             ->sortByDesc('completion_rate')
             ->values();
-
 
         return Inertia::render('Reports/WorkStatistics', [
             'statistics' => [

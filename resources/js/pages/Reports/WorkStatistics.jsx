@@ -124,11 +124,32 @@ export default function WorkStatistics({
           <ResponsiveContainer width="100%" height={450}>
             <BarChart data={individualPerformance}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
+              
+              {/* X-axis shows member name and team */}
+              <XAxis 
+                dataKey="name"
+                tickFormatter={(name, index) => {
+                  const member = individualPerformance[index];
+                  return `${member.name}`;
+                }}
+                interval={0} // ensures all names are shown
+              />
+
               <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-              <Tooltip formatter={(v) => `${v}%`} />
+              <Tooltip 
+                formatter={(value) => `${value}%`}
+                labelFormatter={(label) => {
+                  const member = individualPerformance.find(m => m.name === label);
+                  return `${member.name} - ${member.teams}`;
+                }}
+              />
+              
               <Bar dataKey="completion_rate" fill="#6366f1">
-                <LabelList dataKey="completion_rate" position="top" formatter={(v) => `${v}%`} />
+                <LabelList 
+                  dataKey="completion_rate" 
+                  position="top" 
+                  formatter={(v) => `${v}%`} 
+                />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
