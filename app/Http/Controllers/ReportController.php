@@ -6,6 +6,7 @@ use App\Enums\PricingType;
 use App\Models\ClientCompany;
 use App\Models\Project;
 use App\Models\User;
+use App\Models\Team;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -150,29 +151,28 @@ class ReportController extends Controller
         ]);
     }
 
+    /**
+     * ✅ WORK STATISTICS + PERFORMANCE REPORT
+     */
     public function workStatistics()
     {
         $user = auth()->user();
 
         if ($user->hasRole('admin')) {
-            // Admin sees all projects with tasks
-            $projects = Project::with(['tasks' => fn($q) => $q->select('id','name','project_id','completed_at')])->get(['id','name']);
+            $projects = Project::with(['tasks:id,name,project_id,completed_at'])->get(['id','name']);
         } elseif ($user->hasRole('client')) {
-            // Client sees projects that have tasks they are subscribed to
             $projects = Project::whereHas('tasks.subscribedUsers', fn($q) => $q->where('user_id', $user->id))
                 ->with(['tasks' => fn($q) => $q->whereHas('subscribedUsers', fn($sub) => $sub->where('user_id', $user->id))
-                                                ->select('id','name','project_id','completed_at')])
+                    ->select('id','name','project_id','completed_at')])
                 ->get(['id','name']);
         } else {
-            // Regular users see projects where they are assigned tasks
             $projects = Project::whereHas('tasks', fn($q) => $q->where('assigned_to_user_id', $user->id))
                 ->with(['tasks' => fn($q) => $q->where('assigned_to_user_id', $user->id)
-                                                ->select('id','name','project_id','completed_at')])
+                    ->select('id','name','project_id','completed_at')])
                 ->get(['id','name']);
         }
 
-        // Prepare chart data
-        $chartData = $projects->flatMap(fn($project) => 
+        $chartData = $projects->flatMap(fn($project) =>
             $project->tasks->map(fn($task) => [
                 'project' => $project->name,
                 'task' => $task->name,
@@ -183,6 +183,44 @@ class ReportController extends Controller
         $completedTasks = $chartData->where('status', 'Completed')->count();
         $incompleteTasks = $chartData->where('status', 'Incomplete')->count();
 
+        /* ===========================
+           ✅ PERFORMANCE CALCULATION
+        ============================ */
+
+        $teamPerformance = Team::with('users.tasks')->get()->map(function ($team) {
+            $assigned = 0;
+            $completed = 0;
+
+            foreach ($team->users as $user) {
+                $assigned += $user->tasks->count();
+                $completed += $user->tasks->whereNotNull('completed_at')->count();
+            }
+
+            $rate = $assigned > 0 ? round(($completed / $assigned) * 100, 2) : 0;
+
+            return [
+                'team' => $team->name,
+                'assigned_tasks' => $assigned,
+                'completed_tasks' => $completed,
+                'completion_rate' => $rate,
+                'status' => $this->performanceLabel($rate),
+            ];
+        });
+
+        $individualPerformance = User::with('tasks')->get()->map(function ($user) {
+            $assigned = $user->tasks->count();
+            $completed = $user->tasks->whereNotNull('completed_at')->count();
+            $rate = $assigned > 0 ? round(($completed / $assigned) * 100, 2) : 0;
+
+            return [
+                'name' => $user->name,
+                'assigned_tasks' => $assigned,
+                'completed_tasks' => $completed,
+                'completion_rate' => $rate,
+                'status' => $this->performanceLabel($rate),
+            ];
+        })->sortByDesc('completion_rate')->values();
+
         return Inertia::render('Reports/WorkStatistics', [
             'statistics' => [
                 'completed_tasks' => $completedTasks,
@@ -190,6 +228,15 @@ class ReportController extends Controller
                 'total_projects' => $projects->count(),
             ],
             'chartData' => $chartData,
+            'teamPerformance' => $teamPerformance,
+            'individualPerformance' => $individualPerformance,
         ]);
+    }
+
+    private function performanceLabel(float $rate): string
+    {
+        if ($rate >= 80) return 'Good';
+        if ($rate >= 50) return 'Average';
+        return 'Poor';
     }
 }

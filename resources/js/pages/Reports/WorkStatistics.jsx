@@ -6,109 +6,133 @@ import {
   Pie,
   Cell,
   Tooltip,
-  Legend,
   BarChart,
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   LabelList,
+  ResponsiveContainer,
 } from "recharts";
 
-export default function WorkStatistics({ statistics, chartData }) {
-  const COLORS = {
-    Completed: "#04770cff", 
-    Incomplete: "#ef4444", 
-  };
+export default function WorkStatistics({
+  statistics,
+  chartData,
+  teamPerformance = [],
+  individualPerformance = [],
+}) {
+  const pieData = [
+    { name: "Completed", value: statistics.completed_tasks },
+    { name: "Incomplete", value: statistics.incomplete_tasks },
+  ];
 
-  // Group chart data by project
+  // Project bar data
   const projectStats = chartData.reduce((acc, item) => {
-    const project = acc[item.project] || { project: item.project, Completed: 0, Incomplete: 0 };
+    const project = acc[item.project] || {
+      project: item.project,
+      Completed: 0,
+      Incomplete: 0,
+    };
     project[item.status]++;
     acc[item.project] = project;
     return acc;
   }, {});
-
-  const barData = Object.values(projectStats);
-  const pieData = [
-    { name: "Completed Tasks", value: statistics.completed_tasks },
-    { name: "Incomplete Tasks", value: statistics.incomplete_tasks },
-  ];
+  const projectBarData = Object.values(projectStats);
 
   return (
     <MainLayout title="Work Statistics">
       <Head title="Work Statistics" />
-      <div className="p-8 space-y-10">
-        <h1 className="text-2xl font-bold text-gray-800">Work Statistics Overview</h1>
 
-        {/* Pie Chart */}
-        <div className="bg-white shadow rounded-lg p-6 w-full max-w-xl mx-auto">
-          <h2 className="text-lg font-semibold mb-4 text-center">Overall Task Completion</h2>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <PieChart width={400} height={400}>
+      <div className="p-8 space-y-14">
+        <h1 className="text-2xl font-bold text-gray-800">
+          Work Statistics Dashboard
+        </h1>
+
+        {/* ================= OVERALL COMPLETION ================= */}
+        <div className="bg-white shadow rounded-lg p-6 max-w-xl mx-auto">
+          <h2 className="text-lg font-semibold text-center mb-4">
+            Overall Task Completion
+          </h2>
+          <ResponsiveContainer width="100%" height={350}>
+            <PieChart>
               <Pie
                 data={pieData}
+                dataKey="value"
                 cx="50%"
                 cy="50%"
-                labelLine={false}
-                outerRadius={150}
-                fill="#8884d8"
-                dataKey="value"
+                outerRadius={120}
+                label
               >
-                {pieData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={["#22c55e", "#ef4444", "#3b82f6", "#eab308"][index % 4]}
-                  />
-                ))}
+                <Cell fill="#22c55e" />
+                <Cell fill="#ef4444" />
               </Pie>
               <Tooltip />
             </PieChart>
-          </div>
+          </ResponsiveContainer>
         </div>
 
-        {/* Bar Chart */}
-        <div className="bg-white shadow rounded-lg p-6 w-full max-w-5xl mx-auto">
-          <h2 className="text-lg font-semibold mb-4 text-center">Tasks by Project</h2>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <BarChart
-          width={800}
-          height={400}
-          data={barData}
-          margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
-          barCategoryGap="30%"
-        >
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey="project"
-            angle={-25}
-            textAnchor="end"
-            interval={0}
-            tick={{ fontSize: 12, dy: 10 }} // move labels slightly down
-          />
-          <YAxis allowDecimals={false} />
-          <Tooltip />
-          <Bar dataKey="Completed" fill="#22c55e">
-            <LabelList dataKey="Completed" position="top" />
-          </Bar>
-          <Bar dataKey="Incomplete" fill="#ef4444">
-            <LabelList dataKey="Incomplete" position="top" />
-          </Bar>
-        </BarChart>
-
-        {/* Legend moved outside the chart */}
-        <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-            <div style={{ width: "20px", height: "20px", backgroundColor: "#22c55e" }}></div>
-            <span style={{ color: "white", fontWeight: "500" }}>Completed</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-            <div style={{ width: "20px", height: "20px", backgroundColor: "#ef4444" }}></div>
-            <span style={{ color: "white", fontWeight: "500" }}>Incomplete</span>
-          </div>
+        {/* ================= TASKS BY PROJECT ================= */}
+        <div className="bg-white shadow rounded-lg p-6 max-w-6xl mx-auto">
+          <h2 className="text-lg font-semibold text-center mb-4">
+            Tasks by Project
+          </h2>
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart data={projectBarData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="project" />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
+              <Bar dataKey="Completed" fill="#22c55e" />
+              <Bar dataKey="Incomplete" fill="#ef4444" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-      </div>
-        </div> 
+
+        {/* ================= TEAM PERFORMANCE ================= */}
+        <div className="bg-white shadow rounded-lg p-6 max-w-6xl mx-auto">
+          <h2 className="text-lg font-semibold text-center mb-4">
+            Team Performance
+          </h2>
+
+          <ResponsiveContainer width="100%" height={350}>
+            <BarChart
+              data={teamPerformance}
+              layout="vertical"
+              margin={{ left: 80 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis
+                type="number"
+                domain={[0, 100]}
+                tickFormatter={(v) => `${v}%`}
+              />
+              <YAxis type="category" dataKey="team" />
+              <Tooltip formatter={(v) => `${v}%`} />
+              <Bar dataKey="completion_rate" fill="#3b82f6">
+                <LabelList dataKey="completion_rate" position="right" formatter={(v) => `${v}%`} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* ================= INDIVIDUAL PERFORMANCE ================= */}
+        <div className="bg-white shadow rounded-lg p-6 max-w-6xl mx-auto">
+          <h2 className="text-lg font-semibold text-center mb-4">
+            Individual Performance Ranking
+          </h2>
+
+          <ResponsiveContainer width="100%" height={450}>
+            <BarChart data={individualPerformance}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+              <Tooltip formatter={(v) => `${v}%`} />
+              <Bar dataKey="completion_rate" fill="#6366f1">
+                <LabelList dataKey="completion_rate" position="top" formatter={(v) => `${v}%`} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </MainLayout>
   );
