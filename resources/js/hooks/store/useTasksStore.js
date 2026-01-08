@@ -19,55 +19,74 @@ const useTasksStore = create((set, get) => ({
   // ========================
   // COMMENTS FOR TASKS
   // ========================
-  comments: [], // store all comments for current task
+  comments: [],
   setComments: (comments) => set({ comments }),
 
-  fetchComments: async (task, callback) => {
+  /**
+   * Fetch comments safely
+   */
+  fetchComments: async (task, callback = () => {}) => {
+    if (!task?.id) {
+      callback();
+      return;
+    }
+
     try {
       const res = await axios.get(
         route("projects.tasks.comments", [task.project_id, task.id])
       );
-      
-      // if backend returns { comments: [...] }, use res.data.comments
-      const commentsArray = res.data.comments || res.data;
 
-      set({ comments: commentsArray }); // set all comments from backend
-      if (callback) callback();
+      const commentsArray = Array.isArray(res.data?.comments)
+        ? res.data.comments
+        : Array.isArray(res.data)
+        ? res.data
+        : [];
+
+      set({ comments: commentsArray });
     } catch (e) {
-      console.error(e);
-      alert("Failed to fetch comments");
+      // Ignore harmless empty responses
+      if (e.response?.status !== 204) {
+        console.error("Fetch comments error:", e);
+        alert("Failed to fetch comments");
+      }
+    } finally {
+      callback();
     }
-    console.log("Fetched comments:", res.data);
-
   },
 
+  /**
+   * Save comment then refetch
+   */
+  saveComment: async (task, content, callback = () => {}) => {
+    if (!task?.id || !content.trim()) return;
 
-  saveComment: async (task, content, callback) => {
-    if (!content.trim()) return;
     try {
-      const res = await axios.post(
+      await axios.post(
         route("projects.tasks.comments.store", [task.project_id, task.id]),
         { content }
       );
-      // immediately add new comment to state
-      set((state) => ({ comments: [...state.comments, res.data.comment] }));
-      if (callback) callback();
+
+      // IMPORTANT: fetch after save finishes
+      await get().fetchComments(task);
+      callback();
     } catch (e) {
-      console.error(e);
+      console.error("Save comment error:", e);
       alert("Failed to save comment");
     }
   },
 
   // ========================
+  // TASK OPERATIONS (UNCHANGED)
+  // ========================
   addTask: (task) => {
     return set(produce(state => {
       const index = state.tasks[task.group_id].findIndex((i) => i.id === task.id);
-
       if (index === -1) {
-        state.tasks[task.group_id] = [...state.tasks[task.group_id], task];
+        state.tasks[task.group_id].push(task);
       }
     }));
   },
+
   findTask: (id) => {
     for (const groupId in get().tasks) {
       const task = get().tasks[groupId].find((i) => i.id === id);
@@ -75,12 +94,13 @@ const useTasksStore = create((set, get) => ({
     }
     return null;
   },
+
   updateTaskProperty: async (task, property, value, options = null) => {
     try {
       await axios.put(
         route("projects.tasks.update", [task.project_id, task.id]),
         { [property]: value },
-        { progress: false },
+        { progress: false }
       );
 
       return set(produce(state => {
@@ -88,10 +108,8 @@ const useTasksStore = create((set, get) => ({
 
         if (property === 'group_id' && task.group_id !== value) {
           const result = move(state.tasks, task.group_id, value, index, 0);
-
           state.tasks[task.group_id] = result[task.group_id];
           state.tasks[value] = result[value];
-
           state.tasks[value][0][property] = value;
         } else {
           state.tasks[task.group_id][index][property] = options || value;
@@ -102,6 +120,7 @@ const useTasksStore = create((set, get) => ({
       alert("Failed to save task property change");
     }
   },
+
   complete: (task, checked) => {
     const newState = checked ? true : null;
     const index = get().tasks[task.group_id].findIndex((i) => i.id === task.id);
@@ -110,42 +129,43 @@ const useTasksStore = create((set, get) => ({
       .catch(() => alert("Failed to save task completed action"));
 
     return set(produce(state => {
-      state.tasks[task.group_id][index].completed_at = newState
+      state.tasks[task.group_id][index].completed_at = newState;
     }));
   },
+
   reorderTask: (source, destination) => {
     const sourceGroupId = +source.droppableId.split("-")[1];
-
     const result = reorder(get().tasks[sourceGroupId], source.index, destination.index);
 
-    const data = {
+    axios.post(route("projects.tasks.reorder", [route().params.project]), {
       ids: result.map((i) => i.id),
       group_id: sourceGroupId,
       from_index: source.index,
       to_index: destination.index,
-    };
+    }, { progress: false }).catch(() =>
+      alert("Failed to save task reorder action")
+    );
 
-    axios.post(route("projects.tasks.reorder", [route().params.project]), data, { progress: false })
-      .catch(() => alert("Failed to save task reorder action"));
-
-    return set(produce(state => { state.tasks[sourceGroupId] = result }));
+    return set(produce(state => {
+      state.tasks[sourceGroupId] = result;
+    }));
   },
+
   moveTask: (source, destination) => {
     const sourceGroupId = +source.droppableId.split("-")[1];
     const destinationGroupId = +destination.droppableId.split("-")[1];
 
     const result = move(get().tasks, sourceGroupId, destinationGroupId, source.index, destination.index);
 
-    const data = {
+    axios.post(route("projects.tasks.move", [route().params.project]), {
       ids: result[destinationGroupId].map((i) => i.id),
       from_group_id: sourceGroupId,
       to_group_id: destinationGroupId,
       from_index: source.index,
       to_index: destination.index,
-    };
-
-    axios.post(route("projects.tasks.move", [route().params.project]), data, { progress: false })
-      .catch(() => alert("Failed to save task move action"));
+    }, { progress: false }).catch(() =>
+      alert("Failed to save task move action")
+    );
 
     return set(produce(state => {
       state.tasks[sourceGroupId] = result[sourceGroupId];

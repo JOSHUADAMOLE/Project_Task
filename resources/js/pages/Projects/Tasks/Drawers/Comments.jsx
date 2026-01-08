@@ -23,9 +23,22 @@ export default function Comments({ task }) {
   const [comment, setComment] = useState("");
   const editorRef = useRef(null);
 
+  // ✅ FIX: fetch only when task ID changes
   useEffect(() => {
+    if (!task?.id) return;
+
+    setLoading(true);
     fetchComments(task, () => setLoading(false));
-  }, [task]);
+  }, [task?.id]);
+
+  const handleAddComment = async () => {
+    if (!comment.trim()) return;
+
+    await saveComment(task, comment, () => {
+      setComment("");
+      editorRef.current?.setContent("");
+    });
+  };
 
   return (
     <Box mb="xl">
@@ -38,21 +51,22 @@ export default function Comments({ task }) {
         )}
       </Title>
 
-      {/* Comment input for all users */}
+      {/* Comment input */}
       <RichTextEditor
         ref={editorRef}
         mt="md"
         placeholder="Write a comment"
         height={100}
         content={comment}
-        onChange={(content) => setComment(content)}
+        onChange={setComment}
       />
+
       <Flex justify="flex-end">
         <Button
           variant="filled"
           mt="md"
           disabled={!comment.trim()}
-          onClick={() => saveComment(task, comment, () => editorRef.current.setContent(""))}
+          onClick={handleAddComment}
         >
           Add Comment
         </Button>
@@ -60,7 +74,7 @@ export default function Comments({ task }) {
 
       {loading ? (
         <Center mih={100}>
-          <Loader color="blue" />
+          <Loader />
         </Center>
       ) : (
         <Stack gap={30} mt="md">
@@ -68,29 +82,35 @@ export default function Comments({ task }) {
             <div key={comment.id}>
               <Group justify="space-between">
                 <Group>
-                  <Avatar src={comment.user.avatar} radius="xl" color="blue" />
+                  <Avatar src={comment.user?.avatar} radius="xl" />
                   <div>
                     <Text size="sm" c="blue" fw={500}>
-                      {comment.user.name}
+                      {comment.user?.name}
                     </Text>
                     <Text size="xs" c="dimmed">
-                      {comment.user.job_title}
+                      {comment.user?.job_title}
                     </Text>
                   </div>
                 </Group>
-                <Tooltip label={dateTime(comment.created_at)} openDelay={250} withArrow>
+
+                <Tooltip
+                  label={dateTime(comment.created_at)}
+                  openDelay={250}
+                  withArrow
+                >
                   <Text size="xs" c="dimmed">
                     {diffForHumans(comment.created_at)}
                   </Text>
                 </Tooltip>
               </Group>
+
               <Text
                 pl={54}
                 pt={6}
                 size="sm"
                 className={classes.comment}
                 dangerouslySetInnerHTML={{ __html: comment.content }}
-              ></Text>
+              />
             </div>
           ))}
         </Stack>
